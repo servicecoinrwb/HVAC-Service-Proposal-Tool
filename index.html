@@ -183,9 +183,32 @@
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: Use the global variables provided by the Canvas environment
+        // --- HARDCODED FALLBACK CONFIGURATION ---
+        // Used in case the Canvas environment variables fail to load.
+        const FALLBACK_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDYjrKUuujTaaUe6AIhhcIcmHc93KTQI1M",
+            authDomain: "hvac-service-proposal-tool.firebaseapp.com",
+            projectId: "hvac-service-proposal-tool",
+            storageBucket: "hvac-service-proposal-tool.firebasestorage.app",
+            messagingSenderId: "10017474274",
+            appId: "1:10017474274:web:1f64fe7b7edb807d3900bb",
+            measurementId: "G-YKD6RVX80F"
+        };
+        // ----------------------------------------
+
+        // IMPORTANT: Use the global variables provided by the Canvas environment, with a robust fallback.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        
+        // Try to load config from environment, otherwise use the fallback.
+        let firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } catch (e) {
+                console.warn("Error parsing __firebase_config from environment. Using fallback.", e);
+            }
+        }
+        
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let app, db, auth, userId = null;
@@ -204,8 +227,9 @@
         const initializeFirebase = async () => {
             document.getElementById('loading-indicator').classList.remove('hidden');
 
-            if (!firebaseConfig) {
-                console.error("Firebase config not found.");
+            // Now firebaseConfig is guaranteed to be set either from env or fallback
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                console.error("Firebase config is still invalid.");
                 showMessage("Database setup failed. Cannot connect to persistent storage.", 'bg-red-100 text-red-700');
                 document.getElementById('loading-indicator').classList.add('hidden');
                 return;
