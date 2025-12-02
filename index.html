@@ -24,14 +24,34 @@
             border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
         }
+        /* Custom Google button style for better integration */
+        .btn-google {
+            @apply p-3 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-100 transition duration-200 shadow-sm flex items-center justify-center space-x-2;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
     <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="mb-8">
-            <h1 class="text-4xl font-extrabold text-blue-800 tracking-tight">HVAC Job Cost Calculator</h1>
-            <p class="text-gray-500 mt-1">Create professional, margin-controlled service estimates quickly.</p>
+        <header class="mb-8 flex flex-col md:flex-row md:justify-between md:items-center">
+            <div>
+                <h1 class="text-4xl font-extrabold text-blue-800 tracking-tight">HVAC Job Cost Calculator</h1>
+                <p class="text-gray-500 mt-1">Create professional, margin-controlled service estimates quickly.</p>
+            </div>
+            <!-- LOGIN/LOGOUT BUTTON AREA -->
+            <div id="auth-ui" class="mt-4 md:mt-0">
+                <button onclick="signInWithGoogle()" id="google-sign-in" class="btn-google">
+                    <svg class="h-5 w-5" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M43.611 20.083H42V20H24v8h11.341c-1.411 3.29-3.921 5.757-7.234 7.218l.215 1.543 5.483 4.298c3.398-3.111 6.136-7.538 7.399-13.522z" fill="#4285F4" />
+                        <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-5.483-4.298c-1.895 1.393-4.385 2.505-7.926 2.505-5.405 0-9.946-3.613-11.667-8.48H5.291l-1.636 1.303L4.949 39.43c3.551 7.265 10.947 12.57 19.051 12.57z" fill="#34A853" />
+                        <path d="M12.333 28.361c-.319-1.353-.478-2.781-.478-4.361s.159-3.008.478-4.361L3.66 12.788l-.756 1.635C2.083 17.56 1.487 20.768 1.487 24s.596 6.44-2.913 9.577l7.859 6.126z" fill="#FBBC05" />
+                        <path d="M24 16c3.085 0 5.874 1.156 8.136 3.419l6.347-6.19C33.626 5.673 28.85 3.5 24 3.5c-8.104 0-15.5 5.305-19.051 12.57l7.731 6.035c1.72-4.867 6.261-8.48 11.667-8.48z" fill="#EA4335" />
+                        <path d="M43.611 20.083L43.5 20H24v8h11.341c-1.411 3.29-3.921 5.757-7.234 7.218l-.215 1.543.082.064.004.003 5.483 4.298c3.398-3.111 6.136-7.538 7.399-13.522L43.611 20.083z" fill="url(#a)" /><defs><linearGradient id="a" x1="-10.743" x2="44.275" y1="20.083" y2="20.083" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3377F4" /><stop offset="1" stop-color="#76B5F5" /></linearGradient></defs>
+                    </svg>
+                    <span id="auth-status-text">Sign In with Google</span>
+                </button>
+                <button onclick="signOutUser()" id="google-sign-out" class="btn-secondary hidden mt-2 w-full text-sm">Sign Out</button>
+            </div>
         </header>
 
         <!-- Loading Indicator -->
@@ -40,152 +60,156 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span class="text-blue-600 font-medium">Initializing database and loading data...</span>
+            <span class="text-blue-600 font-medium">Initializing...</span>
         </div>
 
         <!-- System Message Box -->
         <div id="message-box" class="hidden p-4 rounded-lg text-sm mb-6 transition-opacity duration-300" role="alert"></div>
 
-        <!-- Inventory and Customer Info Layout -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
-            <!-- Customer Information Section -->
-            <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-2">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Customer & Job Details</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input type="text" id="customer-name" placeholder="Customer Name" class="input-field">
-                    <input type="text" id="customer-address" placeholder="Job Address" class="input-field">
-                    <input type="tel" id="customer-phone" placeholder="Phone Number" class="input-field">
-                    <input type="email" id="customer-email" placeholder="Email Address (Optional)" class="input-field">
+        <!-- Main Application Content (Initially Disabled) -->
+        <div id="app-content" class="space-y-8 opacity-50 pointer-events-none">
+            
+            <!-- Inventory and Customer Info Layout -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <!-- Customer Information Section -->
+                <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-2">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Customer & Job Details</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <input type="text" id="customer-name" placeholder="Customer Name" class="input-field">
+                        <input type="text" id="customer-address" placeholder="Job Address" class="input-field">
+                        <input type="tel" id="customer-phone" placeholder="Phone Number" class="input-field">
+                        <input type="email" id="customer-email" placeholder="Email Address (Optional)" class="input-field">
+                    </div>
+                </section>
+
+                <!-- Part Inventory Management Section -->
+                <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-1">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Part & Service Inventory</h2>
+
+                    <div class="space-y-3 p-3 bg-blue-50 rounded-lg">
+                        <h3 class="text-sm font-bold text-blue-700">Add New Item</h3>
+                        
+                        <!-- Category Selector -->
+                        <select id="part-category-select" class="input-field p-2 text-sm" onchange="checkNewCategory(this.value)">
+                            <option value="" disabled selected>-- Select/Enter Category --</option>
+                            <!-- Options filled by JS -->
+                        </select>
+                        <input type="text" id="new-category-input" placeholder="New Category Name (e.g., Plumbing)" class="input-field p-2 text-sm hidden">
+
+                        <input type="text" id="part-name" placeholder="Item Name (e.g., Motor Replacement)" class="input-field p-2 text-sm">
+                        <input type="text" id="part-number" placeholder="Part Number (Optional)" class="input-field p-2 text-sm">
+                        <input type="text" id="part-brand" placeholder="Brand (Optional)" class="input-field p-2 text-sm">
+                        <input type="number" id="part-cost" min="0" step="0.01" placeholder="Cost to Business ($)" class="input-field p-2 text-sm">
+                        <button onclick="saveInventoryPart()" class="w-full p-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition duration-150">
+                            + Save New Item to Inventory
+                        </button>
+                    </div>
+                    
+                    <h3 class="text-md font-medium text-gray-700 mt-4 mb-2 border-b pb-1">Filter Inventory List</h3>
+                    <div class="space-y-2 mb-4">
+                        <select id="filter-category" class="input-field p-2 text-sm" onchange="renderInventory()">
+                            <option value="">All Categories</option>
+                            <!-- Options filled by JS -->
+                        </select>
+                        <input type="text" id="filter-name" placeholder="Filter by Name/Part No./Brand" class="input-field p-2 text-sm" oninput="renderInventory()">
+                    </div>
+
+                    <div id="inventory-list" class="scrollable-list bg-gray-50 p-2 text-xs">
+                        <p class="text-gray-400 text-center py-4">Sign in to load your parts...</p>
+                        <!-- Inventory parts will be loaded here -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- Line Items Section -->
+            <section class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Job Line Items (Cost to Business)</h2>
+
+                <!-- Quick Add Service Selector (NEW) -->
+                <div class="mb-4 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <label for="inventory-selector" class="whitespace-nowrap font-medium text-gray-700">Quick Add:</label>
+                    <select id="inventory-selector" onchange="selectPartForJob(this.value)" class="input-field p-2 text-sm flex-grow">
+                        <option value="" disabled selected>-- Select a Part or Service from Inventory --</option>
+                        <!-- Inventory parts will be loaded here -->
+                    </select>
                 </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr class="text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                                <th class="px-3 py-3 text-left">Description</th>
+                                <th class="px-3 py-3 text-right">Cost ($)</th>
+                                <th class="px-3 py-3 text-right">Qty</th>
+                                <th class="px-3 py-3 text-right">Item Cost</th>
+                                <th class="px-3 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="line-items-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Line items will be inserted here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <button onclick="addLineItem()" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 shadow-md">
+                    + Add Ad-hoc Item
+                </button>
             </section>
 
-            <!-- Part Inventory Management Section (UPDATED) -->
-            <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-1">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Part & Service Inventory</h2>
+            <!-- Summary & Margin Adjustment Section -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Totals Card -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Summary</h2>
 
-                <div class="space-y-3 p-3 bg-blue-50 rounded-lg">
-                    <h3 class="text-sm font-bold text-blue-700">Add New Item</h3>
-                    
-                    <!-- Category Selector -->
-                    <select id="part-category-select" class="input-field p-2 text-sm" onchange="checkNewCategory(this.value)">
-                        <option value="" disabled selected>-- Select/Enter Category --</option>
-                        <!-- Options filled by JS -->
-                    </select>
-                    <input type="text" id="new-category-input" placeholder="New Category Name (e.g., Plumbing)" class="input-field p-2 text-sm hidden">
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center text-lg">
+                            <span class="text-gray-600">Total Material & Labor Cost:</span>
+                            <span id="subtotal" class="font-bold text-gray-800">$0.00</span>
+                        </div>
 
-                    <input type="text" id="part-name" placeholder="Item Name (e.g., Motor Replacement)" class="input-field p-2 text-sm">
-                    <input type="text" id="part-number" placeholder="Part Number (Optional)" class="input-field p-2 text-sm">
-                    <input type="text" id="part-brand" placeholder="Brand (Optional)" class="input-field p-2 text-sm">
-                    <input type="number" id="part-cost" min="0" step="0.01" placeholder="Cost to Business ($)" class="input-field p-2 text-sm">
-                    <button onclick="saveInventoryPart()" class="w-full p-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition duration-150">
-                        + Save New Item to Inventory
+                        <div class="flex justify-between items-center border-t pt-3">
+                            <label for="profit-margin" class="text-gray-600 flex items-center">
+                                <span>Target Profit Margin:</span>
+                                <input type="number" id="profit-margin" value="25" min="0" max="100" class="w-16 ml-3 text-right border rounded-lg px-2 py-1 focus:ring-blue-500 focus:border-blue-500" oninput="recalculateTotals()">
+                                <span class="ml-1 text-xl font-bold text-blue-600">%</span>
+                            </label>
+                            <span id="margin-amount" class="font-bold text-blue-600">$0.00</span>
+                        </div>
+
+                        <div class="flex justify-between items-center text-2xl font-extrabold text-green-700 border-t-4 border-double border-green-200 pt-4">
+                            <span>Customer Final Price:</span>
+                            <span id="grand-total">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Card -->
+                <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg flex flex-col space-y-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Actions</h2>
+                    <button onclick="saveEstimate()" class="btn-primary">
+                        💾 Save Estimate to Database
                     </button>
-                </div>
-                
-                <h3 class="text-md font-medium text-gray-700 mt-4 mb-2 border-b pb-1">Filter Inventory List</h3>
-                <div class="space-y-2 mb-4">
-                    <select id="filter-category" class="input-field p-2 text-sm" onchange="renderInventory()">
-                        <option value="">All Categories</option>
-                        <!-- Options filled by JS -->
-                    </select>
-                    <input type="text" id="filter-name" placeholder="Filter by Name/Part No./Brand" class="input-field p-2 text-sm" oninput="renderInventory()">
-                </div>
-
-                <div id="inventory-list" class="scrollable-list bg-gray-50 p-2 text-xs">
-                    <p class="text-gray-400 text-center py-4">Loading parts...</p>
-                    <!-- Inventory parts will be loaded here -->
+                    <button onclick="generateEstimateText()" class="btn-secondary">
+                        📧 Generate Email/Copy Text
+                    </button>
+                    <div id="user-id-display" class="text-xs text-gray-400 mt-4 break-words">Status: Not Signed In</div>
                 </div>
             </section>
         </div>
-
-        <!-- Line Items Section -->
-        <section class="bg-white p-6 rounded-xl shadow-lg mb-8">
-            <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Job Line Items (Cost to Business)</h2>
-
-            <!-- Quick Add Service Selector (NEW) -->
-            <div class="mb-4 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <label for="inventory-selector" class="whitespace-nowrap font-medium text-gray-700">Quick Add:</label>
-                <select id="inventory-selector" onchange="selectPartForJob(this.value)" class="input-field p-2 text-sm flex-grow">
-                    <option value="" disabled selected>-- Select a Part or Service from Inventory --</option>
-                    <!-- Inventory parts will be loaded here -->
-                </select>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead>
-                        <tr class="text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                            <th class="px-3 py-3 text-left">Description</th>
-                            <th class="px-3 py-3 text-right">Cost ($)</th>
-                            <th class="px-3 py-3 text-right">Qty</th>
-                            <th class="px-3 py-3 text-right">Item Cost</th>
-                            <th class="px-3 py-3 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="line-items-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Line items will be inserted here by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-
-            <button onclick="addLineItem()" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 shadow-md">
-                + Add Ad-hoc Item
-            </button>
-        </section>
-
-        <!-- Summary & Margin Adjustment Section -->
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Totals Card -->
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Summary</h2>
-
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center text-lg">
-                        <span class="text-gray-600">Total Material & Labor Cost:</span>
-                        <span id="subtotal" class="font-bold text-gray-800">$0.00</span>
-                    </div>
-
-                    <div class="flex justify-between items-center border-t pt-3">
-                        <label for="profit-margin" class="text-gray-600 flex items-center">
-                            <span>Target Profit Margin:</span>
-                            <input type="number" id="profit-margin" value="25" min="0" max="100" class="w-16 ml-3 text-right border rounded-lg px-2 py-1 focus:ring-blue-500 focus:border-blue-500" oninput="recalculateTotals()">
-                            <span class="ml-1 text-xl font-bold text-blue-600">%</span>
-                        </label>
-                        <span id="margin-amount" class="font-bold text-blue-600">$0.00</span>
-                    </div>
-
-                    <div class="flex justify-between items-center text-2xl font-extrabold text-green-700 border-t-4 border-double border-green-200 pt-4">
-                        <span>Customer Final Price:</span>
-                        <span id="grand-total">$0.00</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actions Card -->
-            <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg flex flex-col space-y-4">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Actions</h2>
-                <button onclick="saveEstimate()" class="btn-primary">
-                    💾 Save Estimate to Database
-                </button>
-                <button onclick="generateEstimateText()" class="btn-secondary">
-                    📧 Generate Email/Copy Text
-                </button>
-                <div id="user-id-display" class="text-xs text-gray-400 mt-4 break-words">User ID: N/A</div>
-            </div>
-        </section>
 
     </div>
 
     <!-- Firebase Imports and Setup -->
     <script type="module">
+        // 1. Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Removed signInAnonymously import as it is the source of the error
-        import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- HARDCODED FALLBACK CONFIGURATION (Your Provided Config) ---
-        const FALLBACK_FIREBASE_CONFIG = {
+        // 2. Firebase Configuration (From User's Input)
+        const FIREBASE_CONFIG = {
             apiKey: "AIzaSyDYjrKUuujTaaUe6AIhhcIcmHc93KTQI1M",
             authDomain: "hvac-service-proposal-tool.firebaseapp.com",
             projectId: "hvac-service-proposal-tool",
@@ -194,29 +218,18 @@
             appId: "1:10017474274:web:1f64fe7b7edb807d3900bb",
             measurementId: "G-YKD6RVX80F"
         };
-        // ----------------------------------------
-
-        // IMPORTANT: Use the global variables provided by the Canvas environment, with a robust fallback.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         
-        let firebaseConfig = FALLBACK_FIREBASE_CONFIG;
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            try {
-                firebaseConfig = JSON.parse(__firebase_config);
-            } catch (e) {
-                console.warn("Error parsing __firebase_config from environment. Using fallback.", e);
-            }
-        }
-        
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Use the hardcoded appId since Canvas environment variables are complex to rely on for Google Auth setup
+        const appId = FIREBASE_CONFIG.appId; 
 
         let app, db, auth, userId = null;
-        let isAuthReady = false;
+        let unsubscribeInventory = null; 
+        let unsubscribeCategories = null;
 
         // Global data stores
         window.lineItems = [];
         window.inventory = [];
-        window.categories = []; // New array for categories
+        window.categories = [];
         let itemIdCounter = 1;
 
         // Set Firestore log level for debugging
@@ -226,52 +239,109 @@
         const initializeFirebase = async () => {
             document.getElementById('loading-indicator').classList.remove('hidden');
 
-            if (!firebaseConfig || !firebaseConfig.apiKey) {
-                console.error("Firebase config is invalid.");
-                showMessage("Database setup failed: Invalid configuration.", 'bg-red-100 text-red-700');
-                document.getElementById('loading-indicator').classList.add('hidden');
-                return;
-            }
-
             try {
-                // 1. Initialize Firebase App
-                app = initializeApp(firebaseConfig);
+                // 1. Initialize Firebase App using the provided config
+                app = initializeApp(FIREBASE_CONFIG);
                 auth = getAuth(app);
                 db = getFirestore(app);
                 
-                let userCredential;
-
-                // 2. Perform Authentication using Custom Token (most reliable method in this environment)
-                if (initialAuthToken) {
-                    userCredential = await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    // Critical Error: Cannot proceed without a valid token in restricted environments
-                    throw new Error("Missing initial authentication token. Cannot proceed with database connection.");
-                }
-                
-                // Directly set the user state after successful sign-in
-                if (userCredential && userCredential.user) {
-                    userId = userCredential.user.uid;
-                    document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
-                    isAuthReady = true;
-                    showMessage("Database connection secured.", 'bg-green-100 text-green-700');
-                    
-                    // Start fetching data immediately
-                    fetchCategories(); 
-                    fetchInventory(); 
-                    addDefaultServiceItems(); 
-                } else {
-                    throw new Error("Authentication failed: Could not retrieve user credentials.");
-                }
+                // 2. Set up Auth State Listener (Crucial for handling sign-in/out)
+                // This listener immediately determines the authentication state.
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        // User is signed in
+                        handleSignIn(user);
+                    } else {
+                        // User is signed out
+                        handleSignOut();
+                    }
+                    // Hide loading indicator only after initial auth check
+                    document.getElementById('loading-indicator').classList.add('hidden');
+                });
 
             } catch (error) {
-                console.error("Firebase Initialization or Auth Error:", error);
+                console.error("Firebase Initialization Error:", error);
+                // NOTE: We rely on the onAuthStateChanged listener to handle the "Not Signed In" state.
+                // This catch block handles catastrophic failures like invalid API keys.
                 showMessage(`CRITICAL ERROR: Initialization failed. ${error.message}. Please check console for details.`, 'bg-red-100 text-red-700');
-            } finally {
-                // Always hide loading indicator
                 document.getElementById('loading-indicator').classList.add('hidden');
             }
         };
+
+        // --- Authentication Functions ---
+
+        // Function to handle successful sign-in
+        const handleSignIn = (user) => {
+            userId = user.uid;
+            document.getElementById('auth-status-text').textContent = `Signed in as ${user.displayName || user.email}`;
+            document.getElementById('google-sign-in').classList.add('hidden');
+            document.getElementById('google-sign-out').classList.remove('hidden');
+            document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+            
+            // Enable app content
+            const appContent = document.getElementById('app-content');
+            appContent.classList.remove('opacity-50', 'pointer-events-none');
+
+            showMessage("Welcome! Database connection secure.", 'bg-green-100 text-green-700');
+            
+            // Start fetching data
+            fetchCategories(); 
+            fetchInventory(); 
+            addDefaultServiceItems(); // Ensure defaults are created on first sign-in
+        };
+
+        // Function to handle sign-out
+        const handleSignOut = () => {
+            userId = null;
+            document.getElementById('auth-status-text').textContent = `Sign In with Google`;
+            document.getElementById('google-sign-in').classList.remove('hidden');
+            document.getElementById('google-sign-out').classList.add('hidden');
+            document.getElementById('user-id-display').textContent = `Status: Not Signed In`;
+
+            // Disable app content
+            const appContent = document.getElementById('app-content');
+            appContent.classList.add('opacity-50', 'pointer-events-none');
+            showMessage("Please sign in to access and save your data.", 'bg-yellow-100 text-yellow-700');
+
+            // Clean up real-time listeners
+            if (unsubscribeInventory) unsubscribeInventory();
+            if (unsubscribeCategories) unsubscribeCategories();
+
+            // Clear local data display
+            window.inventory = [];
+            window.categories = [];
+            renderInventory(); 
+            renderInventorySelector(); 
+        };
+
+        // Exposed function to sign in with Google
+        window.signInWithGoogle = async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                // Use signInWithPopup for a dedicated button
+                await signInWithPopup(auth, provider);
+                // Auth state listener handles the rest
+            } catch (error) {
+                console.error("Google Sign-In Error:", error);
+                const errorMessage = error.message.includes('auth/popup-closed-by-user') ? 
+                                     "Sign-in cancelled." : 
+                                     `Authentication failed: ${error.message}`;
+                showMessage(errorMessage, 'bg-red-100 text-red-700');
+            }
+        };
+
+        // Exposed function to sign out
+        window.signOutUser = async () => {
+            try {
+                await signOut(auth);
+                // Auth state listener handles the rest (handleSignOut)
+                showMessage("Successfully signed out.", 'bg-blue-100 text-blue-700');
+            } catch (error) {
+                console.error("Sign Out Error:", error);
+                showMessage(`Sign out failed: ${error.message}`, 'bg-red-100 text-red-700');
+            }
+        };
+
 
         // --- Utility Functions ---
 
@@ -302,11 +372,13 @@
         // --- Category Management ---
 
         const fetchCategories = () => {
-            if (!isAuthReady || !userId) return;
+            if (!userId) return; 
+
+            if (unsubscribeCategories) unsubscribeCategories();
 
             const categoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_categories`);
 
-            onSnapshot(categoryRef, (snapshot) => {
+            unsubscribeCategories = onSnapshot(categoryRef, (snapshot) => {
                 window.categories = [];
                 snapshot.forEach(doc => {
                     window.categories.push({ id: doc.id, ...doc.data() });
@@ -340,7 +412,6 @@
                 option.textContent = cat.name;
                 filterSelector.appendChild(option);
             });
-            // Re-render inventory after updating filters
             renderInventory(); 
         };
 
@@ -356,6 +427,10 @@
         };
 
         const saveNewCategory = async (name) => {
+            if (!userId) {
+                showMessage("Please sign in to save data.", 'bg-red-100 text-red-700');
+                return;
+            }
             const categoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_categories`);
             // Sanitize name for Firestore ID
             const categoryId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -373,18 +448,19 @@
         // --- Inventory Management ---
 
         const fetchInventory = () => {
-            if (!isAuthReady || !userId) return;
+            if (!userId) return; 
 
-            // Note: We use an indirect query here because Firestore doesn't support complex client-side filtering well
+            if (unsubscribeInventory) unsubscribeInventory();
+
             const inventoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_inventory`);
 
-            onSnapshot(inventoryRef, (snapshot) => {
+            unsubscribeInventory = onSnapshot(inventoryRef, (snapshot) => {
                 window.inventory = [];
                 snapshot.forEach(doc => {
                     window.inventory.push({ id: doc.id, ...doc.data() });
                 });
-                renderInventory(); // Rerender list
-                renderInventorySelector(); // Rerender quick-add selector
+                renderInventory(); 
+                renderInventorySelector(); 
             }, (error) => {
                 console.error("Error fetching inventory:", error);
                 showMessage("Could not load inventory parts.", 'bg-red-100 text-red-700');
@@ -399,19 +475,18 @@
         ];
 
         const addDefaultServiceItems = async () => {
-            if (!isAuthReady || !userId) return;
+            if (!userId) return;
 
             const inventoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_inventory`);
             const categoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_categories`);
 
             for (const item of defaultItems) {
-                // FIX: Properly sanitize category name to prevent Firestore path errors (using the same logic as saveNewCategory)
                 const categoryId = item.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
                 
+                // Ensure category exists
                 await setDoc(doc(categoryRef, categoryId), { name: item.category, timestamp: serverTimestamp(), user_id: userId }, { merge: true });
 
-                // Check if item exists (simple check)
-                // Note: Using a query to check existence to prevent constant re-creation of default items
+                // Check if item exists (simple check by name)
                 const q = query(inventoryRef, where('name', '==', item.name));
                 const snapshot = await getDocs(q);
 
@@ -420,7 +495,7 @@
                     await setDoc(doc(inventoryRef, docId), {
                         name: item.name,
                         cost: item.cost,
-                        category: categoryId, // Use the sanitized ID
+                        category: categoryId,
                         part_number: item.part_number || '',
                         brand: item.brand || '',
                         timestamp: serverTimestamp(),
@@ -435,15 +510,19 @@
             const listContainer = document.getElementById('inventory-list');
             listContainer.innerHTML = '';
             
+            if (!userId) {
+                listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Sign in to load your parts...</p>';
+                return;
+            }
+
             const filterName = document.getElementById('filter-name').value.toLowerCase();
             const filterCatId = document.getElementById('filter-category').value;
 
             let filteredInventory = window.inventory.filter(part => {
-                const nameMatch = part.name.toLowerCase().includes(filterName);
-                const numberMatch = part.part_number.toLowerCase().includes(filterName);
-                const brandMatch = part.brand.toLowerCase().includes(filterName);
+                const nameMatch = (part.name || '').toLowerCase().includes(filterName);
+                const numberMatch = (part.part_number || '').toLowerCase().includes(filterName);
+                const brandMatch = (part.brand || '').toLowerCase().includes(filterName);
                 
-                // FIX: Check if filterCatId is not an empty string before applying category filtering
                 const categoryMatch = !filterCatId || filterCatId === "" || part.category === filterCatId;
 
                 return (nameMatch || numberMatch || brandMatch) && categoryMatch;
@@ -462,7 +541,7 @@
                 
                 const listItem = document.createElement('div');
                 listItem.className = 'flex flex-col p-2 hover:bg-white border-b last:border-b-0 cursor-pointer group';
-                listItem.onclick = () => selectPartForJob(part.id); // Click the part to add it to the job
+                listItem.onclick = () => selectPartForJob(part.id); 
                 
                 listItem.innerHTML = `
                     <div class="flex justify-between items-start text-sm">
@@ -472,8 +551,8 @@
                     <div class="flex justify-between items-center text-xs text-gray-500">
                         <span class="truncate pr-2 italic">${part.brand ? part.brand + ' / ' : ''}${part.part_number || ''}</span>
                         <div class="flex items-center space-x-2">
-                             <span class="text-xs font-semibold text-gray-400">(${categoryName})</span>
-                             <button onclick="event.stopPropagation(); deleteInventoryPart('${part.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span class="text-xs font-semibold text-gray-400">(${categoryName})</span>
+                            <button onclick="event.stopPropagation(); deleteInventoryPart('${part.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                                 &times;
                             </button>
                         </div>
@@ -487,7 +566,7 @@
              const selector = document.getElementById('inventory-selector');
              selector.innerHTML = '<option value="" disabled selected>-- Select a Part or Service from Inventory --</option>';
 
-             if (window.inventory.length === 0) return;
+             if (!userId || window.inventory.length === 0) return;
 
              // Group inventory items by category
              const categorizedItems = window.inventory.reduce((acc, item) => {
@@ -513,8 +592,8 @@
         };
         
         window.saveInventoryPart = async () => {
-            if (!isAuthReady || !userId) {
-                showMessage("Database not ready. Please wait a moment.", 'bg-yellow-100 text-yellow-700');
+            if (!userId) {
+                showMessage("Please sign in to save parts to inventory.", 'bg-red-100 text-red-700');
                 return;
             }
 
@@ -575,7 +654,7 @@
         };
 
         window.deleteInventoryPart = async (id) => {
-            if (!isAuthReady || !userId) return;
+            if (!userId) return;
             
             try {
                 const partRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_inventory/${id}`);
@@ -620,19 +699,19 @@
                 row.innerHTML = `
                     <td class="p-3 whitespace-nowrap">
                         <input type="text" value="${item.description}" 
-                               oninput="updateLineItem(${item.id}, 'description', this.value)"
-                               placeholder="Item Description"
-                               class="w-full border-none focus:ring-0 text-sm font-medium text-gray-900"/>
+                                oninput="updateLineItem(${item.id}, 'description', this.value)"
+                                placeholder="Item Description"
+                                class="w-full border-none focus:ring-0 text-sm font-medium text-gray-900"/>
                     </td>
                     <td class="p-3 whitespace-nowrap text-right">
                         <input type="number" value="${item.cost}" min="0" step="0.01" 
-                               oninput="updateLineItem(${item.id}, 'cost', parseFloat(this.value) || 0)"
-                               class="w-24 text-right border-none focus:ring-0 text-sm"/>
+                                oninput="updateLineItem(${item.id}, 'cost', parseFloat(this.value) || 0)"
+                                class="w-24 text-right border-none focus:ring-0 text-sm"/>
                     </td>
                     <td class="p-3 whitespace-nowrap text-right">
                         <input type="number" value="${item.quantity}" min="1" step="1" 
-                               oninput="updateLineItem(${item.id}, 'quantity', parseInt(this.value) || 1)"
-                               class="w-16 text-right border-none focus:ring-0 text-sm"/>
+                                oninput="updateLineItem(${item.id}, 'quantity', parseInt(this.value) || 1)"
+                                class="w-16 text-right border-none focus:ring-0 text-sm"/>
                     </td>
                     <td class="p-3 whitespace-nowrap text-right font-medium text-gray-900">
                         ${formatCurrency(totalItemCost)}
@@ -640,7 +719,7 @@
                     <td class="p-3 whitespace-nowrap text-right">
                         <button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700 transition">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                         </button>
                     </td>
@@ -705,11 +784,11 @@
             quantity: 1
         });
 
-        // --- Estimate Save and Output Functions (Unchanged) ---
+        // --- Estimate Save and Output Functions ---
 
         window.saveEstimate = async () => {
-            if (!isAuthReady || !userId) {
-                showMessage("Database not ready. Please wait a moment and try again.", 'bg-yellow-100 text-yellow-700');
+            if (!userId) {
+                showMessage("Please sign in to save estimates to your account.", 'bg-red-100 text-red-700');
                 return;
             }
 
@@ -726,6 +805,7 @@
                     phone: document.getElementById('customer-phone').value.trim(),
                     email: document.getElementById('customer-email').value.trim(),
                 },
+                // Serialize lineItems to prevent Firestore nested array issues
                 items: JSON.stringify(window.lineItems.map(item => ({
                     description: item.description,
                     cost: item.cost,
@@ -752,6 +832,7 @@
         };
 
         window.generateEstimateText = () => {
+            // Unchanged: This function doesn't require Firebase authentication.
             let emailBody = "HVAC Service Job Estimate\n\n";
             emailBody += "--- Customer Details ---\n";
             emailBody += `Name: ${document.getElementById('customer-name').value.trim() || 'N/A'}\n`;
@@ -771,16 +852,17 @@
             emailBody += "Thank you for choosing our service!\n\n";
 
             try {
-                navigator.clipboard.writeText(emailBody);
-                showMessage("Estimate text copied to clipboard!", 'bg-blue-100 text-blue-700');
-            } catch (err) {
+                // Use document.execCommand('copy') fallback for clipboard operations in iframe environments
                 const textarea = document.createElement('textarea');
                 textarea.value = emailBody;
                 document.body.appendChild(textarea);
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showMessage("Estimate text copied to clipboard! (using fallback)", 'bg-blue-100 text-blue-700');
+                showMessage("Estimate text copied to clipboard!", 'bg-blue-100 text-blue-700');
+            } catch (err) {
+                console.error("Clipboard copy failed:", err);
+                showMessage("Could not copy estimate text. Please copy manually from console.", 'bg-red-100 text-red-700');
             }
         };
 
@@ -808,7 +890,9 @@
         window.saveInventoryPart = saveInventoryPart;
         window.deleteInventoryPart = deleteInventoryPart;
         window.selectPartForJob = selectPartForJob;
-        window.checkNewCategory = checkNewCategory; // Exposed for HTML interaction
+        window.checkNewCategory = checkNewCategory; 
+        window.signInWithGoogle = signInWithGoogle; 
+        window.signOutUser = signOutUser; 
     </script>
 </body>
 </html>
