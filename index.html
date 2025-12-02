@@ -66,6 +66,7 @@
         // --- START OF CONFIG CHANGE ---
         // 1. Import the configuration from the local, ignored file.
         // FIX: Reverting to explicit local relative path (./) to resolve module resolution in most environments.
+        // NOTE: If you still see a 404 error here, ensure you are running this file via a local web server (e.g., Live Server extension in VS Code) and not directly via the file:// protocol.
         import firebaseConfig from "./firebase-config-local.js";
         // --- END OF CONFIG CHANGE ---
 
