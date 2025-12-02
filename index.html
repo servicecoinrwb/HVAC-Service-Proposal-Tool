@@ -179,7 +179,7 @@
     <!-- Firebase Imports and Setup -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -240,36 +240,63 @@
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+                
+                // FIX: Set persistence to session storage before sign-in to bypass local storage issues in iframes.
+                // If browserSessionPersistence is still blocked, signInAnonymously is a good fallback.
+                await setPersistence(auth, browserSessionPersistence);
+
 
                 // 2. Handle Authentication
+                let userCredential;
                 if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
+                    userCredential = await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    await signInAnonymously(auth);
+                    userCredential = await signInAnonymously(auth);
+                }
+                
+                // Directly set the user state after successful sign-in (since onAuthStateChanged might be delayed)
+                if (userCredential && userCredential.user) {
+                    userId = userCredential.user.uid;
+                    document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                    isAuthReady = true;
+                    showMessage("Database connection secured.", 'bg-green-100 text-green-700');
+                    
+                    // Start fetching data immediately
+                    fetchCategories(); 
+                    fetchInventory(); 
+                    addDefaultServiceItems(); 
+                    document.getElementById('loading-indicator').classList.add('hidden');
+                } else {
+                     // Fallback if sign-in failed unexpectedly
+                    throw new Error("Failed to retrieve user credentials.");
                 }
 
-                // 3. Set up Auth State Listener
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
-                        isAuthReady = true;
-                        showMessage("Database connection secured.", 'bg-green-100 text-green-700');
-                        // Start fetching data once authenticated
-                        fetchCategories(); // Fetch categories first
-                        fetchInventory(); // Fetch inventory
-                        addDefaultServiceItems(); // Ensure default items exist
-                    } else {
-                        userId = null;
-                        document.getElementById('user-id-display').textContent = 'User ID: N/A (Signed Out)';
-                        isAuthReady = true;
-                    }
-                    document.getElementById('loading-indicator').classList.add('hidden');
-                });
+                // Note: onAuthStateChanged is still useful for tracking state changes but is not mandatory for initial load.
+                // The issue here was preventing the initial sign-in/data read.
 
             } catch (error) {
                 console.error("Firebase Initialization or Auth Error:", error);
-                showMessage(`Error initializing database: ${error.message}`, 'bg-red-100 text-red-700');
+                
+                // If it's a storage issue, try to sign in again without explicit persistence setup
+                if (error.code === 'auth/web-storage-unsupported') {
+                    try {
+                        const anonUserCredential = await signInAnonymously(auth);
+                        userId = anonUserCredential.user.uid;
+                        document.getElementById('user-id-display').textContent = `User ID: ${userId} (Anon Fallback)`;
+                        isAuthReady = true;
+                        showMessage("Database connection secured (using anonymous fallback).", 'bg-yellow-100 text-yellow-700');
+                        fetchCategories(); 
+                        fetchInventory(); 
+                        addDefaultServiceItems(); 
+                    } catch (e) {
+                         // If anonymous sign-in fails too, display the final error
+                        console.error("Anonymous sign-in fallback failed:", e);
+                        showMessage(`Critical Error: Database initialization failed. ${e.message}`, 'bg-red-100 text-red-700');
+                    }
+                } else {
+                    showMessage(`Error initializing database: ${error.message}`, 'bg-red-100 text-red-700');
+                }
+                
                 document.getElementById('loading-indicator').classList.add('hidden');
             }
         };
