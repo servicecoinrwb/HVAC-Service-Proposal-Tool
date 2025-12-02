@@ -34,9 +34,12 @@
 
     <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="mb-8 flex flex-col md:flex-row md:justify-between md:items-center">
-            <div>
-                <h1 class="text-4xl font-extrabold text-blue-800 tracking-tight">HVAC Job Cost Calculator</h1>
-                <p class="text-gray-500 mt-1">Create professional, margin-controlled service estimates quickly.</p>
+            <div class="flex items-center space-x-4"> <!-- Added flex container for logo and title -->
+                <img src="https://imageview.mechanicaltemp.com/objects/uploads/d16ab63e-1d1e-4b8f-863c-67e66e4894fc" alt="Company Logo" class="h-12 sm:h-16 w-auto"> <!-- Logo added here -->
+                <div>
+                    <h1 class="text-4xl font-extrabold text-blue-800 tracking-tight">HVAC Job Cost Calculator</h1>
+                    <p class="text-gray-500 mt-1">Create professional, margin-controlled service estimates quickly.</p>
+                </div>
             </div>
             <!-- LOGIN/LOGOUT BUTTON AREA -->
             <div id="auth-ui" class="mt-4 md:mt-0">
@@ -92,8 +95,7 @@
                         <!-- Category Selector -->
                         <select id="part-category-select" class="input-field p-2 text-sm" onchange="checkNewCategory(this.value)">
                             <option value="" disabled selected>-- Select/Enter Category --</option>
-                            <!-- Options filled by JS -->
-                        </select>
+                            <!-- Options filled by JS --></select>
                         <input type="text" id="new-category-input" placeholder="New Category Name (e.g., Plumbing)" class="input-field p-2 text-sm hidden">
 
                         <input type="text" id="part-name" placeholder="Item Name (e.g., Motor Replacement)" class="input-field p-2 text-sm">
@@ -109,8 +111,7 @@
                     <div class="space-y-2 mb-4">
                         <select id="filter-category" class="input-field p-2 text-sm" onchange="renderInventory()">
                             <option value="">All Categories</option>
-                            <!-- Options filled by JS -->
-                        </select>
+                            <!-- Options filled by JS --></select>
                         <input type="text" id="filter-name" placeholder="Filter by Name/Part No./Brand" class="input-field p-2 text-sm" oninput="renderInventory()">
                     </div>
 
@@ -130,8 +131,7 @@
                     <label for="inventory-selector" class="whitespace-nowrap font-medium text-gray-700">Quick Add:</label>
                     <select id="inventory-selector" onchange="selectPartForJob(this.value)" class="input-field p-2 text-sm flex-grow">
                         <option value="" disabled selected>-- Select a Part or Service from Inventory --</option>
-                        <!-- Inventory parts will be loaded here -->
-                    </select>
+                        <!-- Inventory parts will be loaded here --></select>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -206,7 +206,7 @@
         // 1. Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // 2. Firebase Configuration (From User's Input)
@@ -247,7 +247,6 @@
                 db = getFirestore(app);
                 
                 // 2. Set up Auth State Listener (Crucial for handling sign-in/out)
-                // This listener immediately determines the authentication state.
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         // User is signed in
@@ -262,8 +261,6 @@
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                // NOTE: We rely on the onAuthStateChanged listener to handle the "Not Signed In" state.
-                // This catch block handles catastrophic failures like invalid API keys.
                 showMessage(`CRITICAL ERROR: Initialization failed. ${error.message}. Please check console for details.`, 'bg-red-100 text-red-700');
                 document.getElementById('loading-indicator').classList.add('hidden');
             }
@@ -288,7 +285,8 @@
             // Start fetching data
             fetchCategories(); 
             fetchInventory(); 
-            addDefaultServiceItems(); // Ensure defaults are created on first sign-in
+            addDefaultServiceItems(); // Ensure inventory defaults are created on first sign-in
+            loadCurrentJob(); // Load the user's last saved job or create a new one
         };
 
         // Function to handle sign-out
@@ -311,8 +309,10 @@
             // Clear local data display
             window.inventory = [];
             window.categories = [];
+            window.lineItems = []; // Clear current job display
             renderInventory(); 
             renderInventorySelector(); 
+            renderLineItems();
         };
 
         // Exposed function to sign in with Google
@@ -339,7 +339,7 @@
                 showMessage("Successfully signed out.", 'bg-blue-100 text-blue-700');
             } catch (error) {
                 console.error("Sign Out Error:", error);
-                showMessage(`Sign out failed: ${error.message}`, 'bg-red-100 text-red-700');
+                showMessage(`Sign out failed: ${e.message}`, 'bg-red-100 text-red-700');
             }
         };
 
@@ -470,6 +470,7 @@
 
         // Add default service items if they don't exist
         const defaultItems = [
+            { name: "Standard Service Call Fee", cost: 80.00, category: "Service/Labor" }, // Initial Default Item
             { name: "Standard Labor Rate (1 hour)", cost: 75.00, category: "Service/Labor" },
             { name: "Truck/Trip Charge", cost: 45.00, category: "Service/Labor" },
             { name: "AC Filter 16x25x1", cost: 8.50, part_number: "F16251", brand: "Generic", category: "Parts" }
@@ -667,6 +668,67 @@
             }
         };
 
+        // --- Job Line Item Persistence ---
+
+        // Helper to save the current job state to Firestore
+        const saveCurrentJob = async () => {
+            if (!userId || window.lineItems.length === 0) return;
+
+            const jobData = {
+                items: JSON.stringify(window.lineItems), // Store the whole array
+                timestamp: serverTimestamp(),
+                user_id: userId
+            };
+
+            try {
+                // Use a fixed document ID for the current job state
+                const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/current_job`);
+                await setDoc(jobRef, jobData);
+            } catch (e) {
+                console.error("Error saving current job state:", e);
+                // Optionally show a message, but silent failure is usually okay for continuous saves
+            }
+        };
+
+        // Helper to load the current job state from Firestore
+        const loadCurrentJob = async () => {
+            if (!userId) {
+                // If not signed in, ensure line items are empty for a fresh start.
+                window.lineItems = [];
+                renderLineItems();
+                return;
+            }
+
+            try {
+                const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/current_job`);
+                const docSnap = await getDoc(jobRef);
+
+                if (docSnap.exists() && docSnap.data().items) {
+                    // Load saved items
+                    const savedItems = JSON.parse(docSnap.data().items);
+                    window.lineItems = savedItems;
+                    // Find the highest ID and continue counting from there
+                    itemIdCounter = savedItems.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+                    showMessage("Loaded previous job items.", 'bg-blue-100 text-blue-700');
+                } else {
+                    // Initialize with the default item if no saved job exists
+                    window.lineItems = [{
+                        id: itemIdCounter++,
+                        description: 'Standard Service Call Fee',
+                        cost: 80.00,
+                        quantity: 1
+                    }];
+                    showMessage("Starting new job.", 'bg-blue-100 text-blue-700');
+                }
+            } catch (e) {
+                console.error("Error loading current job state:", e);
+                showMessage("Error loading job from database, starting fresh.", 'bg-red-100 text-red-700');
+                window.lineItems = []; // Ensure empty array on failure
+            }
+
+            renderLineItems();
+        };
+
         // --- Calculator Core Logic ---
 
         // Function to select an inventory part and add it to line items
@@ -688,6 +750,7 @@
         };
 
         // Function to render the line items in the table
+        // This function now also triggers saving the state.
         window.renderLineItems = window.debounce(() => {
             const body = document.getElementById('line-items-body');
             body.innerHTML = ''; 
@@ -729,6 +792,7 @@
             });
 
             recalculateTotals();
+            saveCurrentJob(); // Save the state after rendering is complete
         }, 50);
 
         // Function to update item properties
@@ -785,13 +849,6 @@
             document.getElementById('grand-total').textContent = formatCurrency(grandTotal);
         };
 
-        // Initialize with a default line item
-        window.lineItems.push({
-            id: itemIdCounter++,
-            description: 'Standard Service Call Fee',
-            cost: 80.00,
-            quantity: 1
-        });
         
         // FUNCTION TO LOAD MARGIN ON STARTUP
         const loadInitialMargin = () => {
@@ -893,15 +950,8 @@
         // Initialize on load
         window.addEventListener('load', () => {
             initializeFirebase();
-            loadInitialMargin(); // Load margin before rendering
-            renderLineItems();
-
-            // Attach event listeners for dynamic updates
-            // document.getElementById('profit-margin').addEventListener('input', recalculateTotals); // REMOVED: Replaced by saveMarginAndRecalculate in HTML
-            document.getElementById('line-items-body').addEventListener('input', renderLineItems); 
-            
-            // Re-render inventory when filter category changes
-            document.getElementById('filter-category').addEventListener('change', renderInventory);
+            loadInitialMargin(); // Load margin before initializing job data
+            // Initial renderLineItems is called within loadCurrentJob or handleSignOut
         });
 
         // Expose functions globally for use in HTML attributes
@@ -917,7 +967,7 @@
         window.checkNewCategory = checkNewCategory; 
         window.signInWithGoogle = signInWithGoogle; 
         window.signOutUser = signOutUser; 
-        window.saveMarginAndRecalculate = saveMarginAndRecalculate; // NEW
+        window.saveMarginAndRecalculate = saveMarginAndRecalculate; 
     </script>
 </body>
 </html>
