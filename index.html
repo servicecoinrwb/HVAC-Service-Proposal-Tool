@@ -171,7 +171,8 @@
                         <div class="flex justify-between items-center border-t pt-3">
                             <label for="profit-margin" class="text-gray-600 flex items-center">
                                 <span>Target Profit Margin:</span>
-                                <input type="number" id="profit-margin" value="25" min="0" max="100" class="w-16 ml-3 text-right border rounded-lg px-2 py-1 focus:ring-blue-500 focus:border-blue-500" oninput="recalculateTotals()">
+                                <!-- Margin value is set to 25% here, but will be overwritten by JS if localStorage has a value -->
+                                <input type="number" id="profit-margin" value="25" min="0" max="100" class="w-16 ml-3 text-right border rounded-lg px-2 py-1 focus:ring-blue-500 focus:border-blue-500" oninput="saveMarginAndRecalculate(this.value)">
                                 <span class="ml-1 text-xl font-bold text-blue-600">%</span>
                             </label>
                             <span id="margin-amount" class="font-bold text-blue-600">$0.00</span>
@@ -758,6 +759,14 @@
             window.lineItems = window.lineItems.filter(item => item.id !== id);
             renderLineItems();
         };
+        
+        // NEW FUNCTION: Save margin to localStorage and recalculate
+        window.saveMarginAndRecalculate = (value) => {
+            const margin = parseFloat(value) || 0;
+            // Save the current margin value to localStorage
+            localStorage.setItem('hvac_profit_margin', margin);
+            recalculateTotals();
+        };
 
         // Function to recalculate all totals
         window.recalculateTotals = () => {
@@ -783,6 +792,20 @@
             cost: 80.00,
             quantity: 1
         });
+        
+        // FUNCTION TO LOAD MARGIN ON STARTUP
+        const loadInitialMargin = () => {
+            // Load margin from localStorage, default to 25 if not found
+            const savedMargin = localStorage.getItem('hvac_profit_margin');
+            const marginInput = document.getElementById('profit-margin');
+            
+            if (savedMargin !== null) {
+                const marginValue = parseFloat(savedMargin);
+                if (!isNaN(marginValue)) {
+                    marginInput.value = marginValue;
+                }
+            }
+        };
 
         // --- Estimate Save and Output Functions ---
 
@@ -870,10 +893,11 @@
         // Initialize on load
         window.addEventListener('load', () => {
             initializeFirebase();
+            loadInitialMargin(); // Load margin before rendering
             renderLineItems();
 
             // Attach event listeners for dynamic updates
-            document.getElementById('profit-margin').addEventListener('input', recalculateTotals);
+            // document.getElementById('profit-margin').addEventListener('input', recalculateTotals); // REMOVED: Replaced by saveMarginAndRecalculate in HTML
             document.getElementById('line-items-body').addEventListener('input', renderLineItems); 
             
             // Re-render inventory when filter category changes
@@ -893,6 +917,7 @@
         window.checkNewCategory = checkNewCategory; 
         window.signInWithGoogle = signInWithGoogle; 
         window.signOutUser = signOutUser; 
+        window.saveMarginAndRecalculate = saveMarginAndRecalculate; // NEW
     </script>
 </body>
 </html>
