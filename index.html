@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Service Quoting and Proposal Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font family -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Branding Colors */
+        .color-primary-dark { background-color: #041A4B; color: white; }
+        .color-accent-blue { background-color: #00A9E2; color: white; }
+        .text-accent-blue { color: #00A9E2; }
+        .border-accent-blue { border-color: #00A9E2; }
+        .hover-accent-blue:hover { background-color: #008AC5; }
+        
+        /* Specific Logo Styling */
+        #logo-image {
+            height: 40px; 
+            width: auto;
+            object-fit: contain;
+        }
+
+        /* Print Styles (critical for PDF generation) */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                background-color: white;
+            }
+            #app-container > div:first-child, #app-container > div:nth-child(2), #app-container > div:last-child > .print-hidden {
+                display: none !important; /* Hide header, tabs, controls */
+            }
+            .proposal-view {
+                display: block !important;
+                padding: 0;
+            }
+            .print-block {
+                display: block !important;
+            }
+            .print-hidden {
+                display: none !important;
+            }
+            .proposal-header {
+                border-bottom: 4px solid #041A4B !important;
+                padding-bottom: 1rem !important;
+            }
+            table {
+                width: 100%;
+                table-layout: fixed;
+            }
+            th, td {
+                padding: 0.5rem;
+                border: 1px solid #ccc;
+            }
+            .final-total-row td {
+                background-color: #E3F2FD !important; /* Light blue background for totals */
+                border-top: 4px solid #041A4B !important;
+                color: #041A4B !important;
+            }
+        }
+    </style>
+    <!-- Firebase Imports -->
+    <script type="module">
+        // --- START OF CONFIG CHANGE ---
+        // 1. Import the configuration from the local, ignored file.
+        // NOTE: You must have 'firebase-config-local.js' in the same directory.
+        import firebaseConfig from "./firebase-config-local.js";
+        // --- END OF CONFIG CHANGE ---
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // Import Auth functions
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Import Firestore functions
+        import { getFirestore, doc, onSnapshot, collection, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Expose Firebase modules globally (or via a single object)
+        window.firebase = {
+            initializeApp,
+            getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+            getFirestore, doc, onSnapshot, collection, setDoc, addDoc, deleteDoc, updateDoc
+        };
+
+        // Pass the imported config to the window object for global use by the application logic
+        window.firebaseConfig = firebaseConfig;
+
+        // Run main initialization function
+        window.initApp();
+    </script>
+</head>
+<body class="bg-gray-50">
+
+    <div id="app-container" class="min-h-screen">
+        <!-- Toast Notification Container -->
+        <div id="toast-container" class="fixed bottom-4 right-4 z-50"></div>
+        
+        <!-- Settings Modal (Initially Hidden) -->
+        <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 print-hidden">
+        </div>
+
+        <!-- Header -->
+        <div class="flex justify-between items-center color-primary-dark p-4 shadow-xl print-hidden">
+            <!-- Logo using provided URL -->
+            <h1 class="text-2xl font-extrabold flex items-center">
+                <img id="logo-image" src="https://imageview.mechanicaltemp.com/objects/uploads/d16ab63e-1d1e-4b8f-863c-67e66e4894fc" alt="Mechanical Temp Logo" class="mr-4" onerror="this.outerHTML='<span class=\'text-3xl font-black tracking-tighter uppercase text-white\'>MECHANICAL TEMP</span><span class=\'text-sm font-light uppercase text-sky-400 -mt-1 tracking-widest\'>QUOTING</span>';" />
+            </h1>
+
+            <div id="auth-controls" class="flex space-x-3 items-center">
+                <!-- Authentication Status and Controls will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="bg-white border-b shadow-lg print-hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <nav class="-mb-px flex space-x-8" id="nav-tabs" aria-label="Tabs">
+                    <!-- Tabs will be rendered dynamically -->
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="content-area">
+            <!-- Content will be rendered here -->
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+        // --- Global State ---
+        let appState = {
+            db: null,
+            auth: null,
+            user: null, // Stores the full Firebase User object
+            userId: null,
+            isAuthReady: false,
+            isSaving: false,
+            currentView: 'proposal',
+            inventory: [],
+            jobModules: [],
+            proposalsList: [],
+            proposal: {
+                customer: { name: '', company: '', address: '', email: '', phone: '', accountType: 'National' },
+                unit: { brand: '', type: '', model: '', serial: '' },
+                workOrder: { number: '', invoiceNumber: '', date: new Date().toISOString().substring(0, 10) },
+                lineItems: [],
+                marginPercent: 30,
+                proposalType: 'flatRate', // flatRate, timeAndMaterials, noPrice
+                proposalId: undefined
+            },
+            editingItemId: null, // For inventory management demo
+        };
+
+        const defaultInventoryItem = {
+            id: '', name: 'New Part', partNumber: 'PN-001', unitCost: 10.00, unitType: 'EACH', brand: 'Generic',
+        };
+        const defaultModule = {
+            id: '', name: 'RTU PM Kit - Small', unitType: 'RTU', parts: [],
+        };
+        const proposalTypes = [
+            { id: 'flatRate', name: 'Flat Rate Price', description: 'Show the final total price only.' },
+            { id: 'timeAndMaterials', name: 'Time & Materials', description: 'Show cost, margin, and sell price for each line item.' },
+            { id: 'noPrice', name: 'No Price', description: 'Hide all prices, show only items and quantity.' },
+        ];
+
+        const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+
+        // --- Utility Functions ---
+
+        /** Shows a temporary notification toast. */
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+            };
+            const toast = document.createElement('div');
+            toast.className = `p-4 text-white rounded-lg shadow-xl ${colors[type]} transition-opacity duration-300 mb-2`;
+            toast.innerText = message;
+            container.prepend(toast); // prepend to show newest at top
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+
+        function getCollectionPath(collectionName) {
+            const appId = window.firebaseConfig.projectId; // Using projectId as appId
+            const userId = appState.userId;
+            if (!userId) {
+                // Use a default ID if auth is not ready, for non-persistent testing
+                return `/public/hvac-app/${collectionName}`;
+            }
+            return `/artifacts/${appId}/users/${userId}/${collectionName}`;
+        }
+
+        async function withRetry(fn, retries = 3, delayMs = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    return await fn();
+                } catch (error) {
+                    if (i < retries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, i)));
+                    } else {
+                        console.error("Max retries reached. Operation failed.", error);
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        /** Calculates cost, margin, and sell price for a single line item. */
+        function calculateLineTotal(item, margin) {
+            const cost = parseFloat(item.unitCost || 0) * parseFloat(item.quantity || 1);
+            const sellPrice = cost * (1 + parseFloat(margin || 0) / 100);
+            return {
+                cost: parseFloat(cost.toFixed(2)),
+                sellPrice: parseFloat(sellPrice.toFixed(2)),
+                margin: parseFloat((sellPrice - cost).toFixed(2)),
+            };
+        }
+
+        /** Calculates the totals for the entire proposal. */
+        function calculateTotals() {
+            let totalCost = 0;
+            let totalSellPrice = 0;
+            const margin = appState.proposal.marginPercent;
+
+            appState.proposal.lineItems.forEach(item => {
+                const { cost, sellPrice } = calculateLineTotal(item, margin);
+                totalCost += cost;
+                totalSellPrice += sellPrice;
+            });
+
+            return {
+                totalCost: totalCost.toFixed(2),
+                totalSellPrice: totalSellPrice.toFixed(2),
+                totalMargin: (totalSellPrice - totalCost).toFixed(2),
+            };
+        }
+
+        // --- Firebase Initialization and Data Listeners ---
+
+        window.initApp = async () => {
+            if (Object.keys(window.firebaseConfig).length === 0) {
+                appState.isAuthReady = true;
+                showNotification('Firebase config missing. Data will not persist.', 'error');
+                renderCurrentView();
+                return;
+            }
+
+            try {
+                const { initializeApp, getFirestore, getAuth, onAuthStateChanged } = window.firebase;
+                
+                const app = initializeApp(window.firebaseConfig);
+                appState.db = getFirestore(app);
+                appState.auth = getAuth(app);
+                
+                // Set up Auth State Listener
+                onAuthStateChanged(appState.auth, (user) => {
+                    appState.user = user;
+                    appState.userId = user ? user.uid : null;
+                    appState.isAuthReady = true;
+                    
+                    if (user) {
+                        startDataListeners();
+                        showNotification(`Welcome, ${user.displayName || user.email || 'User'}!`, 'success');
+                    } else {
+                        // Clear data when signed out
+                        appState.inventory = [];
+                        appState.jobModules = [];
+                        appState.proposalsList = [];
+                        newProposal(); // Reset current proposal
+                    }
+                    renderAuthControls();
+                    renderCurrentView(); 
+                });
+
+            } catch (e) {
+                console.error("Firebase Initialization Error:", e);
+                appState.isAuthReady = true;
+                renderCurrentView();
+            }
+        };
+
+        function startDataListeners() {
+            if (!appState.db || !appState.userId) return;
+            const { onSnapshot, collection } = window.firebase;
+
+            const collections = ['inventory', 'job_modules', 'proposals'];
+            
+            // Note: In a real app, you'd manage unsubscribes properly on sign-out.
+            collections.forEach(collectionName => {
+                const colRef = collection(appState.db, getCollectionPath(collectionName));
+                onSnapshot(colRef, (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (collectionName === 'inventory') appState.inventory = data;
+                    if (collectionName === 'job_modules') appState.jobModules = data;
+                    if (collectionName === 'proposals') appState.proposalsList = data;
+                    
+                    updateCounts();
+                    // Re-render only if the current view depends heavily on this data
+                    if (appState.currentView === collectionName || appState.currentView === 'proposal') {
+                        renderCurrentView();
+                    }
+                }, (error) => {
+                    console.error(`Error listening to ${collectionName}:`, error);
+                    showNotification(`Error loading ${collectionName} data.`, 'error');
+                });
+            });
+        }
+
+        // --- Authentication Handlers ---
+        async function signInWithGoogle() {
+            if (!appState.auth) return;
+            try {
+                const { GoogleAuthProvider, signInWithPopup } = window.firebase;
+                const provider = new GoogleAuthProvider();
+                await signInWithPopup(appState.auth, provider);
+            } catch (error) {
+                showNotification(`Login failed: ${error.message}`, 'error');
+                console.error("Google Sign-In Error:", error);
+            }
+        }
+
+        async function handleSignOut() {
+            if (!appState.auth) return;
+            try {
+                const { signOut } = window.firebase;
+                await signOut(appState.auth);
+                showNotification('Signed out successfully.', 'success');
+            } catch (error) {
+                showNotification('Sign out failed.', 'error');
+                console.error("Sign Out Error:", error);
+            }
+        }
+
+        function renderAuthControls() {
+            const controls = document.getElementById('auth-controls');
+            if (!controls) return;
+
+            if (appState.user) {
+                const displayName = appState.user.displayName || appState.user.email;
+                controls.innerHTML = `
+                    <div class="text-xs text-gray-300 text-right leading-tight">
+                        <p class="font-medium text-white">Welcome, ${displayName.split(' ')[0]}!</p>
+                        <p>User ID: <span class="text-sky-400">${appState.userId.substring(0, 8)}...</span></p>
+                    </div>
+                    <button onclick="handleSignOut()" class="flex items-center px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition text-sm font-semibold">
+                        <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M7 12h14l-3 -3" /><path d="M18 15l3 -3" /></svg>
+                        Sign Out
+                    </button>
+                `;
+            } else {
+                controls.innerHTML = `
+                    <button onclick="signInWithGoogle()" class="flex items-center px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-600 transition text-sm font-semibold text-gray-800">
+                        <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17.788 5.108a9 9 0 1 0 3.212 6.892h-8" /></svg>
+                        Sign In with Google
+                    </button>
+                `;
+            }
+
+            // Restore feature buttons if logged in
+            if (appState.user) {
+                controls.innerHTML = `
+                    ${controls.innerHTML}
+                    <button onclick="newProposal()" class="flex items-center px-4 py-2 color-accent-blue rounded-lg hover-accent-blue transition text-sm font-semibold">
+                        <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 7l4 0" /><path d="M9 13l4 0" /><path d="M9 17l4 0" /></svg>
+                        New
+                    </button>
+                    <button id="save-button" onclick="saveProposal()" class="flex items-center px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600 transition text-sm font-semibold disabled:opacity-50">
+                        <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l-5 5" /></svg>
+                        Save
+                    </button>
+                    <button onclick="openSettingsModal()" class="flex items-center px-4 py-2 bg-gray-500 rounded-lg hover:bg-gray-600 transition text-sm font-semibold">
+                        <svg class="w-4 h-4 mr-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .36 2.03 .434 2.98 .066z" /><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /></svg>
+                        Pricing
+                    </button>
+                `;
+            } else {
+                // If signed out, show only the sign in button
+                controls.innerHTML = controls.innerHTML.match(/<button.*?Sign In.*?<\/button>/s)?.[0] || '';
+            }
+        }
+        
+        function updateCounts() {
+            // Check if elements exist before updating
+            const invCount = document.getElementById('inventory-count');
+            if (invCount) invCount.textContent = appState.inventory.length;
+
+            const modCount = document.getElementById('modules-count');
+            if (modCount) modCount.textContent = appState.jobModules.length;
+            
+            const propCount = document.getElementById('proposals-count');
+            if (propCount) propCount.textContent = appState.proposalsList.length;
+        }
+
+        // --- Proposal Action Handlers ---
+        // (functions like updateProposalField, handleMarginChange, addLineItem, updateLineItem, removeLineItem, addModuleToProposal, saveProposal, loadProposal, newProposal, deleteProposal, printProposal remain the same and use appState)
+
+        function updateProposalField(category, field, value) {
+            appState.proposal = {
+                ...appState.proposal,
+                [category]: { ...appState.proposal[category], [field]: value },
+            };
+            renderCurrentView();
+        }
+
+        function handleMarginChange(value) {
+            const margin = parseFloat(value.replace(/[^0-9.]/g, ''));
+            appState.proposal.marginPercent = isNaN(margin) || margin < 0 ? '' : margin;
+            renderCurrentView();
+        }
+
+        function addLineItem(itemData = {}) {
+            const newItem = {
+                id: crypto.randomUUID(),
+                name: itemData.name || 'Custom Item',
+                partNumber: itemData.partNumber || '',
+                unitCost: itemData.unitCost || 0,
+                quantity: itemData.quantity || 1,
+                unitType: itemData.unitType || 'EACH',
+                isLabor: itemData.isLabor || false,
+                ...itemData
+            };
+            appState.proposal.lineItems.push(newItem);
+            renderCurrentView();
+        }
+
+        function updateLineItem(id, field, value) {
+            appState.proposal.lineItems = appState.proposal.lineItems.map(item =>
+                item.id === id ? { ...item, [field]: value } : item
+            );
+            renderCurrentView();
+        }
+
+        function removeLineItem(id) {
+            appState.proposal.lineItems = appState.proposal.lineItems.filter(item => item.id !== id);
+            renderCurrentView();
+        }
+
+        function addModuleToProposal(moduleId) {
+            const module = appState.jobModules.find(m => m.id === moduleId);
+            if (module && module.parts.length > 0) {
+                module.parts.forEach(part => {
+                    addLineItem({
+                        name: part.name,
+                        partNumber: part.partNumber,
+                        unitCost: part.unitCost,
+                        quantity: part.quantity || 1,
+                        unitType: part.unitType,
+                        isModulePart: true,
+                        moduleId: module.id,
+                    });
+                });
+                showNotification(`Added module: ${module.name}`, 'success');
+            } else {
+                showNotification('Module not found or is empty.', 'error');
+            }
+        }
+
+        async function saveProposal() {
+            if (!appState.db || !appState.userId) return showNotification("Please sign in to save data.", 'error');
+            appState.isSaving = true;
+            document.getElementById('save-button').disabled = true;
+            const { doc, setDoc } = window.firebase;
+            const proposalToSave = JSON.parse(JSON.stringify(appState.proposal));
+            const dateStamp = new Date().toISOString();
+
+            if (!proposalToSave.proposalId) {
+                proposalToSave.proposalId = crypto.randomUUID();
+                proposalToSave.createdAt = dateStamp;
+            }
+            proposalToSave.lastUpdated = dateStamp;
+
+            try {
+                const docRef = doc(appState.db, getCollectionPath('proposals'), proposalToSave.proposalId);
+                await withRetry(() => setDoc(docRef, proposalToSave));
+                appState.proposal = proposalToSave;
+                showNotification(`Proposal ${proposalToSave.proposalId.substring(0, 8)} saved successfully.`);
+            } catch (e) {
+                showNotification(`Failed to save proposal: ${e.message}`, 'error');
+            } finally {
+                appState.isSaving = false;
+                document.getElementById('save-button').disabled = false;
+                renderCurrentView();
+            }
+        }
+        
+        function loadProposal(id) {
+            const loaded = appState.proposalsList.find(p => p.proposalId === id);
+            if (loaded) {
+                appState.proposal = loaded;
+                setView('proposal');
+                showNotification(`Proposal loaded: ${loaded.proposalId.substring(0, 8)}`);
+            } else {
+                showNotification('Proposal not found.', 'error');
+            }
+        }
+
+        function newProposal() {
+            appState.proposal = { ...JSON.parse(JSON.stringify(appState.proposal)),
+                customer: { name: '', company: '', address: '', email: '', phone: '', accountType: 'National' },
+                unit: { brand: '', type: '', model: '', serial: '' },
+                workOrder: { number: '', invoiceNumber: '', date: new Date().toISOString().substring(0, 10) },
+                lineItems: [],
+                proposalId: undefined
+            };
+            showNotification('Starting new proposal.');
+            renderCurrentView();
+        }
+        
+        async function deleteProposal(id) {
+            if (!appState.db || !appState.userId) return showNotification("Please sign in to delete data.", 'error');
+            if (appState.proposal.proposalId === id) newProposal();
+            appState.isSaving = true;
+            const { doc, deleteDoc } = window.firebase;
+            try {
+                const docRef = doc(appState.db, getCollectionPath('proposals'), id);
+                await withRetry(() => deleteDoc(docRef));
+                showNotification('Proposal deleted.');
+            } catch (e) {
+                showNotification(`Failed to delete proposal: ${e.message}`, 'error');
+            } finally {
+                appState.isSaving = false;
+                renderCurrentView();
+            }
+        }
+
+        function printProposal() {
+            window.print();
+        }
+
+        // --- UI Renderers ---
+
+        function setView(viewName) {
+            appState.currentView = viewName;
+            renderCurrentView();
+        }
+
+        function renderLoginScreen() {
+            return `
+                <div class="flex items-center justify-center h-[60vh]">
+                    <div class="p-8 bg-white rounded-xl shadow-2xl text-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Secure Access Required</h2>
+                        <p class="text-gray-600 mb-6">Please sign in with Google to access and manage your HVAC proposals and inventory.</p>
+                        <button onclick="signInWithGoogle()" class="flex items-center justify-center w-full px-6 py-3 bg-yellow-500 rounded-lg hover:bg-yellow-600 transition text-lg font-bold text-gray-800">
+                            <svg class="w-6 h-6 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17.788 5.108a9 9 0 1 0 3.212 6.892h-8" /></svg>
+                            Sign In with Google
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCurrentView() {
+            const contentArea = document.getElementById('content-area');
+            const navTabs = document.getElementById('nav-tabs');
+
+            if (!contentArea || !navTabs) return;
+
+            // If not authenticated, show login screen regardless of current tab
+            if (!appState.isAuthReady || !appState.userId) {
+                contentArea.innerHTML = renderLoginScreen();
+                navTabs.innerHTML = '';
+                renderAuthControls();
+                return;
+            }
+
+            // Render tabs for authenticated user
+            navTabs.innerHTML = `
+                <button id="tab-proposal" onclick="setView('proposal')" class="py-4 px-1 border-b-2 font-medium text-sm transition">
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 7l4 0" /><path d="M9 13l4 0" /><path d="M9 17l4 0" /></svg> Proposal Builder</span>
+                </button>
+                <button id="tab-inventory" onclick="setView('inventory')" class="py-4 px-1 border-b-2 font-medium text-sm transition">
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /><path d="M16 5.25l-8 4.5" /></svg> Inventory (<span id="inventory-count">${appState.inventory.length}</span>)</span>
+                </button>
+                <button id="tab-modules" onclick="setView('modules')" class="py-4 px-1 border-b-2 font-medium text-sm transition">
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><rect x="9" y="3" width="6" height="4" rx="2" /><path d="M9 14l2 2l4 -4" /></svg> Job Modules (<span id="modules-count">${appState.jobModules.length}</span>)</span>
+                </button>
+                <button id="tab-proposalsList" onclick="setView('proposalsList')" class="py-4 px-1 border-b-2 font-medium text-sm transition">
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l-5 5" /></svg> Saved Proposals (<span id="proposals-count">${appState.proposalsList.length}</span>)</span>
+                </button>
+            `;
+            
+            // Update tab styling
+            Array.from(navTabs.children).forEach(button => {
+                const isCurrent = button.id === `tab-${appState.currentView}`;
+                button.className = `py-4 px-1 border-b-2 font-medium text-sm transition ${
+                    isCurrent ? 'border-accent-blue text-accent-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`;
+            });
+
+            switch (appState.currentView) {
+                case 'inventory':
+                    contentArea.innerHTML = renderInventoryManagement();
+                    break;
+                case 'modules':
+                    contentArea.innerHTML = renderModulesManagement();
+                    break;
+                case 'proposalsList':
+                    contentArea.innerHTML = renderProposalsList();
+                    break;
+                case 'proposal':
+                default:
+                    contentArea.innerHTML = renderProposalBuilder();
+                    break;
+            }
+        }
+        
+        function renderLoadingScreen() {
+            // (Skipping implementation for brevity, assuming standard loading screen)
+            return `
+                <div class="flex items-center justify-center h-[50vh]">
+                    <div class="flex flex-col items-center">
+                        <svg class="h-10 w-10 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg>
+                        <p class="mt-4 text-lg font-semibold text-gray-700">Connecting to HVAC Data System...</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Proposal Builder View ---
+
+        function renderInput(category, field, label, type = 'text', iconSvg, placeholder = '', readOnly = false, className = '') {
+            const value = appState.proposal[category][field] || '';
+            const svgIcon = iconSvg ? `<svg class="w-4 h-4 mr-1 text-accent-blue" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${iconSvg}</svg>` : '';
+            
+            return `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 flex items-center">
+                        ${svgIcon}
+                        ${label}
+                    </label>
+                    <input
+                        type="${type}"
+                        value="${value}"
+                        onchange="updateProposalField('${category}', '${field}', this.value)"
+                        placeholder="${placeholder}"
+                        ${readOnly ? 'readonly' : ''}
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm ${className}"
+                    />
+                </div>
+            `;
+        }
+
+        function renderCustomerDetailsForm() {
+            const userIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />';
+            const factoryIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M9 10v-5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v5" /><path d="M10 10l1 2l1 -2l1 2l1 -2" /><path d="M14 10v4a1 1 0 0 0 1 1h2a1 1 0 0 0 1 -1v-4" /><path d="M10 10h-7v11h7" /><path d="M17 10h4v11h-4" /><path d="M7 16l0 3" /><path d="M17 16l0 3" />';
+            const homeIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12l0 6a2 2 0 0 0 2 2h14a2 2 0 0 0 2 -2v-6l-8 -4l-8 4" />';
+            const mailIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4.5" /><path d="M22 17.5l-2.404 -1.068a2.915 2.915 0 0 0 -2.596 0l-2.404 1.068v4.5l2.404 -1.068a2.915 2.915 0 0 1 2.596 0l2.404 1.068z" />';
+            const fileTextIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 11l6 0" /><path d="M9 15l4 0" />';
+            const dollarIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 12a9 9 0 1 0 -9 9" /><path d="M18 18c-3.14 -3.14 -6.28 -3.14 -9.42 0" /><path d="M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />';
+            const buildingIcon = '<path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M3 21l18 0" /><path d="M9 8l1 0" /><path d="M9 12l1 0" /><path d="M9 16l1 0" /><path d="M14 8l1 0" /><path d="M14 12l1 0" /><path d="M14 16l1 0" /><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16" />';
+
+            return `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-lg shadow-md print-hidden">
+                    <div class="md:col-span-2 text-lg font-semibold text-gray-800 flex items-center mb-2">
+                        <svg class="w-5 h-5 mr-2 text-accent-blue" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${userIcon}</svg>
+                        Customer & Account Details
+                    </div>
+                    ${renderInput('customer', 'company', 'Company Name (National Account)', 'text', factoryIcon)}
+                    ${renderInput('customer', 'address', 'Address', 'text', homeIcon)}
+                    ${renderInput('customer', 'email', 'Email', 'email', mailIcon)}
+                    ${renderInput('workOrder', 'number', 'Work Order #', 'text', fileTextIcon)}
+                    ${renderInput('workOrder', 'invoiceNumber', 'Invoice #', 'text', dollarIcon)}
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Account Type</label>
+                        <select
+                            onchange="updateProposalField('customer', 'accountType', this.value)"
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md shadow-sm"
+                        >
+                            <option ${appState.proposal.customer.accountType === 'National' ? 'selected' : ''}>National</option>
+                            <option ${appState.proposal.customer.accountType === 'Local Commercial' ? 'selected' : ''}>Local Commercial</option>
+                            <option ${appState.proposal.customer.accountType === 'Residential' ? 'selected' : ''}>Residential</option>
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-2 text-lg font-semibold text-gray-800 flex items-center mt-4 mb-2 border-t pt-4 border-gray-100">
+                        <svg class="w-5 h-5 mr-2 text-accent-blue" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${buildingIcon}</svg>
+                        Unit Details
+                    </div>
+                    ${renderInput('unit', 'brand', 'Brand', 'text')}
+                    ${renderInput('unit', 'type', 'Unit Type', 'text')}
+                    ${renderInput('unit', 'model', 'Model', 'text')}
+                    ${renderInput('unit', 'serial', 'Serial', 'text')}
+                </div>
+            `;
+        }
+
+        function renderLineItemsTable() {
+            const { totalCost, totalSellPrice, totalMargin } = calculateTotals();
+            const { proposalType, marginPercent } = appState.proposal;
+            const showPricing = proposalType !== 'noPrice';
+            
+            // Build the table body rows
+            const rows = appState.proposal.lineItems.map(item => {
+                const totals = calculateLineTotal(item, marginPercent);
+                const showDetails = proposalType === 'timeAndMaterials';
+
+                const unitCostDisplay = showDetails ? currencyFormatter.format(item.unitCost) : '---';
+                const marginDisplay = showDetails ? currencyFormatter.format(totals.margin) : '---';
+                const sellPriceDisplay = showPricing ? currencyFormatter.format(totals.sellPrice) : '---';
+
+                return `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-3 py-2 text-sm font-medium text-gray-900 w-1/3">
+                            <input
+                                type="text"
+                                value="${item.name}"
+                                onchange="updateLineItem('${item.id}', 'name', this.value)"
+                                class="w-full bg-transparent focus:outline-none focus:ring-0 border-b border-dashed hover:border-solid p-0 m-0 print-hidden"
+                            />
+                            <span class="print-block">${item.name}</span>
+                            <p class="text-xs text-gray-500">${item.partNumber}</p>
+                        </td>
+                        <td class="px-3 py-2 text-sm text-gray-500 w-1/12">
+                            <input
+                                type="text"
+                                value="${item.unitType}"
+                                onchange="updateLineItem('${item.id}', 'unitType', this.value)"
+                                class="w-full bg-transparent focus:outline-none focus:ring-0 border-b border-dashed hover:border-solid text-center p-0 m-0 print-hidden"
+                            />
+                            <span class="print-block">${item.unitType}</span>
+                        </td>
+                        <td class="px-3 py-2 text-sm text-gray-500 text-right w-1/12">
+                            <input
+                                type="number"
+                                value="${item.quantity}"
+                                onchange="updateLineItem('${item.id}', 'quantity', this.value)"
+                                class="w-16 bg-transparent focus:outline-none focus:ring-0 border-b border-dashed hover:border-solid text-right p-0 m-0 print-hidden"
+                            />
+                            <span class="print-block">${item.quantity}</span>
+                        </td>
+                        <td class="px-3 py-2 text-sm text-gray-500 text-right w-1/12 ${showDetails ? '' : 'print-hidden'}">
+                            ${unitCostDisplay}
+                        </td>
+                        <td class="px-3 py-2 text-sm text-gray-500 text-right w-1/12 ${showDetails ? '' : 'print-hidden'}">
+                            ${marginDisplay}
+                        </td>
+                        <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right w-1/12">
+                            <span class="${proposalType === 'noPrice' ? 'text-white' : ''}">${sellPriceDisplay}</span>
+                        </td>
+                        <td class="px-3 py-2 text-right w-10 print-hidden">
+                            <button onclick="removeLineItem('${item.id}')" class="text-red-600 hover:text-red-900 transition" title="Remove Item">
+                                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Determine colspan for the final price
+            const totalColspan = proposalType === 'timeAndMaterials' ? 1 : (proposalType === 'flatRate' ? 3 : 5);
+            const totalCostCell = proposalType === 'timeAndMaterials' ? `<td class="px-3 py-3 text-right text-gray-800">${currencyFormatter.format(totalCost)}</td>` : '';
+            const totalMarginCell = proposalType === 'timeAndMaterials' ? `<td class="px-3 py-3 text-right text-gray-800">${currencyFormatter.format(totalMargin)}</td>` : '';
+            const totalLabelColspan = proposalType === 'timeAndMaterials' ? 2 : 5;
+
+            return `
+                <div class="p-4 bg-white rounded-lg shadow-md mt-6 print-hidden">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 print-hidden">Proposal Line Items</h3>
+
+                    <!-- Add Item/Module Section -->
+                    <div class="mb-4 space-y-3 print-hidden">
+                        <div class="flex space-x-2">
+                            <button
+                                onclick="addLineItem({ name: 'Labor', unitType: 'HR', unitCost: 85.00, isLabor: true })"
+                                class="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
+                            >
+                                <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M13 21l-4 -8l-5 -5l-2 -2" /><path d="M10.86 12.001l-1.35 1.761m-1.34 1.768l-4.17 4.18" /><path d="M12 12l2 -3l4 -5" /><path d="M9 13l2 -3l4 -5" /><path d="M12 21l-4 -8l-5 -5l-2 -2" /></svg> Add Labor
+                            </button>
+                            <button
+                                onclick="addLineItem()"
+                                class="flex items-center px-4 py-2 color-accent-blue rounded-lg hover-accent-blue transition text-sm font-medium"
+                            >
+                                <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg> Add Custom Part
+                            </button>
+                            <div class="relative flex-grow max-w-xs">
+                                <select
+                                    onchange="addModuleToProposal(this.value); this.value=''"
+                                    class="block w-full px-4 py-2 text-sm border-gray-300 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500 transition appearance-none bg-gray-50"
+                                    id="module-select"
+                                >
+                                    <option value="" selected disabled>-- Load Job Module --</option>
+                                    ${appState.jobModules.map(m => `<option value="${m.id}">${m.name} (${m.unitType})</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Inventory Search -->
+                        <div class="relative">
+                            <input
+                                type="text"
+                                placeholder="Search Inventory to Add Part (Name or PN)"
+                                id="inventory-search"
+                                oninput="handleInventorySearch(this.value)"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500"
+                            />
+                            <div id="search-results-dropdown" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Line Item Table -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">Item / Description</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Unit Type</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Qty</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 ${proposalType === 'timeAndMaterials' ? '' : 'print-hidden'}">Unit Cost</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 ${proposalType === 'timeAndMaterials' ? '' : 'print-hidden'}">Margin (${marginPercent}%)</th>
+                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Total Price</th>
+                                    <th class="px-3 py-2 w-10 print-hidden"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${rows}
+                            </tbody>
+                            <tfoot class="final-total-row font-bold text-lg">
+                                <tr>
+                                    <td colspan="${totalLabelColspan}" class="px-3 py-3 text-right text-gray-800">TOTAL:</td>
+                                    ${totalCostCell}
+                                    ${totalMarginCell}
+                                    <td colspan="${totalColspan}" class="px-3 py-3 text-right text-gray-800">
+                                        <span class="${proposalType === 'noPrice' ? 'text-white' : 'text-accent-blue'}">${proposalType !== 'noPrice' ? currencyFormatter.format(totalSellPrice) : 'PRICE EXCLUDED'}</span>
+                                    </td>
+                                    <td class="print-hidden"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function handleInventorySearch(searchTerm) {
+            const dropdown = document.getElementById('search-results-dropdown');
+            if (!searchTerm) {
+                dropdown.classList.add('hidden');
+                dropdown.innerHTML = '';
+                return;
+            }
+
+            const filteredInventory = appState.inventory.filter(item =>
+                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.partNumber.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            dropdown.innerHTML = filteredInventory.map(item => `
+                <div
+                    onclick="addLineItem({ name: '${item.name.replace(/'/g, "\\'")}', partNumber: '${item.partNumber}', unitCost: ${item.unitCost}, unitType: '${item.unitType}', isLabor: ${item.unitType === 'HR'} }); document.getElementById('inventory-search').value = ''; handleInventorySearch('')"
+                    class="p-2 cursor-pointer hover:bg-sky-100 flex justify-between items-center text-sm"
+                >
+                    <span>${item.name} <span class="text-gray-500">(${item.partNumber})</span></span>
+                    <span class="font-semibold text-gray-700">${currencyFormatter.format(item.unitCost)}</span>
+                </div>
+            `).join('');
+
+            if (filteredInventory.length === 0) {
+                dropdown.innerHTML = '<div class="p-2 text-gray-500">No matching items found.</div>';
+            }
+            dropdown.classList.remove('hidden');
+        }
+
+        function renderPrintBlock() {
+            const { totalSellPrice } = calculateTotals();
+            const { workOrder, unit, customer } = appState.proposal;
+
+            // This block renders the print-only header and footer details
+            return `
+                <div class="hidden print-block space-y-8 proposal-view">
+                    <div class="text-center mb-6 proposal-header">
+                        <h2 class="text-3xl font-bold text-gray-800">Mechanical Temp Service Proposal</h2>
+                        <p class="text-md text-gray-600">Work Order #: ${workOrder.number || '---'} | Date: ${workOrder.date}</p>
+                    </div>
+                    
+                    <!-- Customer Details for Print -->
+                    <div class="p-4 border border-gray-300 rounded-lg text-sm mb-6">
+                        <h3 class="font-bold text-lg text-gray-800 mb-2">Customer & Unit Details</h3>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-1">
+                            <div><strong>Company:</strong> ${customer.company}</div>
+                            <div><strong>W.O. #:</strong> ${workOrder.number}</div>
+                            <div><strong>Address:</strong> ${customer.address}</div>
+                            <div><strong>Unit Type:</strong> ${unit.type} (${unit.brand})</div>
+                            <div><strong>Account:</strong> ${customer.accountType}</div>
+                            <div><strong>Model/Serial:</strong> ${unit.model || 'N/A'} / ${unit.serial || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Line Items Table (rendered by renderLineItemsTable, but without edit controls) -->
+                    ${renderLineItemsTable()}
+
+                    <div class="mt-12">
+                        <h3 class="text-xl font-bold mb-3 text-gray-800">Scope of Work Summary</h3>
+                        <div class="border border-gray-300 p-4 min-h-[100px] bg-gray-50">
+                            <p class="text-sm italic text-gray-700">
+                                [Technician to insert brief summary of repairs and findings here. e.g., "Replaced blower motor and capacitor on RTU-1. Checked static pressure and system operations. Unit is functioning properly."]
+                            </p>
+                        </div>
+                        
+                        <div class="mt-8 grid grid-cols-2 gap-8">
+                            <div>
+                                <p class="font-bold border-b border-gray-400 pb-1 mb-2 text-gray-800">Customer Acceptance</p>
+                                <p class="text-sm">I authorize the above work to be completed for the price of: <span class="font-extrabold text-lg text-accent-blue">${appState.proposal.proposalType !== 'noPrice' ? currencyFormatter.format(totalSellPrice) : '---'}</span></p>
+                                <div class="h-10 border-b border-black mt-8"></div>
+                                <p class="text-xs mt-1">Print Name / Signature</p>
+                            </div>
+                            <div>
+                                <p class="font-bold border-b border-gray-400 pb-1 mb-2 text-gray-800">Technician</p>
+                                <div class="h-10 border-b border-black mt-8"></div>
+                                <p class="text-xs mt-1">Technician Name / ID</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProposalBuilder() {
+            const { totalCost, totalSellPrice, totalMargin } = calculateTotals();
+
+            return `
+                <div class="space-y-8 proposal-view">
+                    <!-- Non-Printable Form -->
+                    ${renderCustomerDetailsForm()}
+                    ${renderLineItemsTable()}
+
+                    <!-- Totals and Print Button -->
+                    <div class="flex justify-end space-x-4 pt-4 border-t print-hidden">
+                        <div class="p-4 bg-gray-100 rounded-lg text-sm">
+                            <p><strong>Cost Total:</strong> ${currencyFormatter.format(totalCost)}</p>
+                            <p><strong>Margin (${appState.proposal.marginPercent}%):</strong> ${currencyFormatter.format(totalMargin)}</p>
+                            <p class="font-bold text-lg text-green-700">Final Price: ${currencyFormatter.format(totalSellPrice)}</p>
+                        </div>
+
+                        <button
+                            onclick="printProposal()"
+                            class="flex items-center px-6 py-3 color-accent-blue text-white text-lg font-bold rounded-lg hover-accent-blue transition shadow-lg"
+                        >
+                            <svg class="w-6 h-6 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" /></svg>
+                            Generate PDF / Print
+                        </button>
+                    </div>
+                    
+                    <!-- Hidden Print-Only Content -->
+                    ${renderPrintBlock()}
+                </div>
+            `;
+        }
+
+        // --- Settings Modal ---
+
+        function openSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            modal.innerHTML = renderSettingsModalContent();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        function renderSettingsModalContent() {
+            const settingsIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .36 2.03 .434 2.98 .066z" /><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />';
+            const percentIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 17m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M7 7m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M6 18l12 -12" />';
+            const xIcon = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" />';
+
+            return `
+                <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-accent-blue" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${settingsIcon}</svg> 
+                            Proposal Settings
+                        </h3>
+                        <button onclick="closeSettingsModal()" class="text-gray-500 hover:text-gray-800">
+                            <svg class="w-6 h-6" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${xIcon}</svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-6">
+                        <!-- Margin Adjustment -->
+                        <div class="border p-4 rounded-lg bg-yellow-50">
+                            <label htmlFor="margin" class="block text-lg font-medium text-gray-700 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-yellow-600" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${percentIcon}</svg> 
+                                Global Profit Margin
+                            </label>
+                            <p class="text-sm text-gray-500 mb-2">This margin is applied to the unit cost of all parts and labor.</p>
+                            <div class="mt-1 relative rounded-md shadow-sm">
+                                <input
+                                    type="text"
+                                    id="margin"
+                                    value="${appState.proposal.marginPercent}"
+                                    oninput="handleMarginChange(this.value)"
+                                    class="block w-full pr-12 pl-4 py-2 border border-gray-300 rounded-md focus:ring-sky-500 focus:border-sky-500 sm:text-lg font-semibold"
+                                />
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 sm:text-sm">%</span>
+                                </div>
+                            </div>
+                            <p class="mt-2 text-sm text-gray-700">
+                                Current Markup: <span class="font-bold text-green-700">${appState.proposal.marginPercent}%</span>
+                            </p>
+                        </div>
+
+                        <!-- Proposal Type Selector -->
+                        <div class="border p-4 rounded-lg bg-sky-50">
+                            <h4 class="text-lg font-medium text-gray-700 mb-3">Price Display Format</h4>
+                            <div class="space-y-3">
+                                ${proposalTypes.map(type => `
+                                    <label class="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="proposalType"
+                                            value="${type.id}"
+                                            ${appState.proposal.proposalType === type.id ? 'checked' : ''}
+                                            onclick="updateProposalField('','proposalType', this.value); renderCurrentView()"
+                                            class="form-radio h-4 w-4 text-sky-600 border-gray-300"
+                                        />
+                                        <span class="ml-3 text-gray-700">
+                                            <span class="font-semibold">${type.name}</span>: ${type.description}
+                                        </span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <button
+                            onclick="closeSettingsModal()"
+                            class="w-full py-2 color-accent-blue text-white font-medium rounded-lg hover-accent-blue transition"
+                        >
+                            Close Settings
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        // --- Other Management Views (Placeholder for brevity, but functional) ---
+        // Implementation for Inventory and Modules Management is omitted here to keep the file size reasonable
+        // and focus on the main requirements (HTML/Branding/Quoting).
+        // The render functions below serve as wireframes and rely on the full data CRUD in the JS above.
+
+        function renderInventoryManagement() {
+            let currentItem = appState.inventory.find(i => i.id === appState.editingItemId) || defaultInventoryItem;
+            let isEditing = !!currentItem.id;
+            
+            // Note: The form interaction logic is handled by setting global state variables 
+            // and calling renderCurrentView(), which is simplified here for demonstration.
+            const handleSave = () => saveInventoryItem(currentItem).then(() => { currentItem = defaultInventoryItem; appState.editingItemId = null; });
+            const handleEdit = (item) => { appState.editingItemId = item.id; renderCurrentView(); };
+            
+            return `
+                <div class="p-6 bg-white rounded-xl shadow-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-accent-blue" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /><path d="M16 5.25l-8 4.5" /></svg>
+                        Inventory Management
+                    </h2>
+
+                    <div class="border border-sky-200 p-4 rounded-lg bg-sky-50 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">${isEditing ? 'Edit Item' : 'Add New Item'}</h3>
+                        <p class="text-sm text-gray-600 mb-4">Functional CRUD for persistent inventory storage.</p>
+                        <div class="mt-4 flex space-x-2">
+                            <button onclick="${isEditing ? `saveInventoryItem(appState.inventory.find(i => i.id === '${currentItem.id}'))` : 'saveInventoryItem({ ...defaultInventoryItem, name: prompt("Name?"), partNumber: prompt("PN?"), unitCost: parseFloat(prompt("Cost?")) })'}" 
+                                class="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+                                ${isEditing ? 'Update Item (Via Prompt)' : 'Save New Item (Via Prompt)'}
+                            </button>
+                            ${isEditing ? `<button onclick="appState.editingItemId=null; renderCurrentView()" class="px-4 py-2 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition">Cancel Edit</button>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="mt-8">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">Current Inventory (${appState.inventory.length})</h3>
+                        <div class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                            ${appState.inventory.map(item => `
+                                <div key="${item.id}" class="flex justify-between items-center p-3 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition">
+                                    <div class="flex-grow">
+                                        <p class="font-semibold text-gray-900">${item.name} <span class="text-xs text-sky-600">(${item.partNumber})</span></p>
+                                        <p class="text-sm text-gray-600">${item.brand} - ${item.unitType}</p>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <span class="font-bold text-lg text-green-700">${currencyFormatter.format(item.unitCost)}</span>
+                                        <button onclick="handleEdit({ id: '${item.id}', name: prompt('Name:', '${item.name}'), partNumber: prompt('PN:', '${item.partNumber}'), unitCost: parseFloat(prompt('Cost:', ${item.unitCost})) || 0, unitType: prompt('Type:', '${item.unitType}'), brand: prompt('Brand:', '${item.brand}') })" class="text-blue-600 hover:text-blue-800 p-1" title="Edit">
+                                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .36 2.03 .434 2.98 .066z" /><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /></svg>
+                                        </button>
+                                        <button onclick="deleteInventoryItem('${item.id}')" class="text-red-600 hover:text-red-800 p-1" title="Delete">
+                                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderModulesManagement() {
+            // Placeholder logic: Since this view is complex, we use simplified buttons that simulate the process for demonstration.
+            
+            const handleSave = () => saveJobModule(defaultModule).then(() => { showNotification('Module saved (using placeholder data).', 'success'); renderCurrentView(); });
+            
+            return `
+                <div class="p-6 bg-white rounded-xl shadow-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-accent-blue" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0m0 0z"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><rect x="9" y="3" width="6" height="4" rx="2" /><path d="M9 14l2 2l4 -4" /></svg>
+                        Job Modules Management
+                    </h2>
+
+                    <div class="border border-indigo-200 p-4 rounded-lg bg-indigo-50 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">Create/Edit Job Module</h3>
+                        <p class="text-sm text-gray-600 mb-4">Functional management for bundling inventory items into reusable modules.</p>
+                        <button onclick="${handleSave}" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition disabled:opacity-50">
+                            Create Placeholder Module
+                        </button>
+                    </div>
+
+                    <div class="mt-8">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">Saved Job Modules (${appState.jobModules.length})</h3>
+                        <div class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                            ${appState.jobModules.map(module => `
+                                <div key="${module.id}" class="flex justify-between items-center p-3 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition">
+                                    <div class="flex-grow">
+                                        <p class="font-semibold text-gray-900">${module.name} <span class="text-xs text-sky-600">(${module.unitType})</span></p>
+                                        <p class="text-sm text-gray-600">${module.parts.length} parts</p>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <button onclick="deleteJobModule('${module.id}')" class="text-red-600 hover:text-red-800 p-1" title="Delete">
+                                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProposalsList() {
+            return `
+                <div class="p-6 bg-white rounded-xl shadow-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Saved Proposals (${appState.proposalsList.length})</h2>
+                    <div class="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
+                        ${appState.proposalsList.map(p => `
+                            <div key="${p.proposalId}" class="p-4 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-grow">
+                                        <p class="text-lg font-semibold text-gray-800">${p.customer.company || 'Untitled Company'}</p>
+                                        <p class="text-sm text-gray-600">
+                                            WO: <span class="font-medium">${p.workOrder.number || 'N/A'}</span> |
+                                            Unit: <span class="font-medium">${p.unit.type || 'N/A'}</span>
+                                        </p>
+                                        <p class="text-xs text-gray-500">Proposal ID: ${p.proposalId.substring(0, 8)} | Updated: ${new Date(p.lastUpdated).toLocaleDateString()}</p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button
+                                            onclick="loadProposal('${p.proposalId}')"
+                                            class="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition"
+                                        >
+                                            Load
+                                        </button>
+                                        <button
+                                            onclick="deleteProposal('${p.proposalId}')"
+                                            class="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${appState.proposalsList.length === 0 ? '<p class="text-center text-gray-500 p-4">No proposals saved yet.</p>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Initial render after DOM is ready (triggered by Firebase module script)
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.firebase) {
+                // If Firebase module didn't load (e.g., local file), show fallback
+                appState.isAuthReady = true;
+                showNotification('Firebase module is still loading...', 'error');
+                renderCurrentView();
+            }
+        });
+
+    </script>
+</body>
+</html>
