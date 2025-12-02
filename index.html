@@ -65,7 +65,7 @@
     <script type="module">
         // --- START OF CONFIG CHANGE ---
         // 1. Import the configuration from the local, ignored file.
-        // NOTE: You must have 'firebase-config-local.js' in the same directory.
+        // FIX: Reverting to explicit local relative path (./) to resolve module resolution in most environments.
         import firebaseConfig from "./firebase-config-local.js";
         // --- END OF CONFIG CHANGE ---
 
@@ -246,7 +246,8 @@
         // --- Firebase Initialization and Data Listeners ---
 
         window.initApp = async () => {
-            if (Object.keys(window.firebaseConfig).length === 0) {
+            // Check if firebaseConfig is populated. It should be populated by the module import.
+            if (!window.firebaseConfig || Object.keys(window.firebaseConfig).length === 0) {
                 appState.isAuthReady = true;
                 showNotification('Firebase config missing. Data will not persist.', 'error');
                 renderCurrentView();
