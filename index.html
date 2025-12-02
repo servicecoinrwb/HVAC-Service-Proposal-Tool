@@ -419,7 +419,9 @@
                 const nameMatch = part.name.toLowerCase().includes(filterName);
                 const numberMatch = part.part_number.toLowerCase().includes(filterName);
                 const brandMatch = part.brand.toLowerCase().includes(filterName);
-                const categoryMatch = !filterCatId || part.category === filterCatId;
+                
+                // FIX: Check if filterCatId is not an empty string before applying category filtering
+                const categoryMatch = !filterCatId || filterCatId === "" || part.category === filterCatId;
 
                 return (nameMatch || numberMatch || brandMatch) && categoryMatch;
             });
