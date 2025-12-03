@@ -78,27 +78,14 @@
             
             <!-- Inventory and Customer Info Layout -->
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <!-- Customer Information Section - EXPANDED -->
+                <!-- Customer Information Section -->
                 <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-2">
                     <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Customer & Job Details</h2>
-                    
-                    <!-- New Job/WO/Customer Name Fields -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                        <input type="text" id="work-order-number" placeholder="Work Order #" class="input-field" oninput="saveJobDetails()">
-                        <input type="text" id="job-number" placeholder="Job #" class="input-field" oninput="saveJobDetails()">
-                        <input type="text" id="customer-name" placeholder="Customer Name" class="input-field" oninput="saveJobDetails()">
-                    </div>
-                    
-                    <!-- Address/Contact Fields -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input type="text" id="customer-address" placeholder="Job Address" class="input-field" oninput="saveJobDetails()">
-                        <input type="tel" id="customer-phone" placeholder="Phone Number" class="input-field" oninput="saveJobDetails()">
-                        <input type="email" id="customer-email" placeholder="Email Address (Optional)" class="input-field sm:col-span-2" oninput="saveJobDetails()">
-                    </div>
-                    
-                    <!-- General Unit Info/Notes -->
-                    <div class="mt-4">
-                        <textarea id="unit-info-notes" rows="3" placeholder="General Job Notes / Unit Info (e.g., Building 1, 3 units total, Access notes)" class="input-field resize-none" oninput="saveJobDetails()"></textarea>
+                        <input type="text" id="customer-name" placeholder="Customer Name" class="input-field">
+                        <input type="text" id="customer-address" placeholder="Job Address" class="input-field">
+                        <input type="tel" id="customer-phone" placeholder="Phone Number" class="input-field">
+                        <input type="email" id="customer-email" placeholder="Email Address (Optional)" class="input-field">
                     </div>
                 </section>
 
@@ -143,9 +130,13 @@
             <section class="bg-white p-6 rounded-xl shadow-lg mb-8">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Job Line Items (Cost to Business)</h2>
 
-                <!-- Quick Add Selector for New Items (Unit assignment defaults to last used unit) -->
-                <div class="mb-4 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                    <label for="inventory-selector" class="whitespace-nowrap font-medium text-gray-700">Quick Add Item/Service:</label>
+                <!-- Unit Selector and Quick Add for New Items -->
+                <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4 p-3 bg-gray-50 rounded-lg border">
+                    <label for="current-unit-input" class="whitespace-nowrap font-medium text-gray-700 text-sm">Current Unit/System:</label>
+                    <input type="text" id="current-unit-input" placeholder="e.g., RTU-1, AHU-B" value="General/Unassigned" 
+                           class="input-field p-2 text-sm flex-grow bg-white" oninput="saveCurrentUnit(this.value)">
+
+                    <label for="inventory-selector" class="whitespace-nowrap font-medium text-gray-700 text-sm hidden sm:block">Quick Add:</label>
                     <select id="inventory-selector" onchange="selectPartForJob(this.value)" class="input-field p-2 text-sm flex-grow">
                         <option value="" disabled selected>-- Select a Part or Service from Inventory --</option>
                         <!-- Inventory parts will be loaded here --></select>
@@ -305,7 +296,7 @@
             fetchCategories(); 
             fetchInventory(); 
             addDefaultServiceItems(); 
-            loadJobDetails(); // Load job details (WO, Job #, Notes)
+            loadCurrentUnit(); // Load the saved unit
             loadCurrentJob(); // Load the user's last saved job
         };
 
@@ -387,58 +378,25 @@
             };
         };
         
-        // --- Job Details Persistence (WO, Job #, Contact Info, Notes) ---
-        
-        // Helper to get all job detail fields
-        const getJobDetails = () => ({
-            work_order: document.getElementById('work-order-number').value.trim(),
-            job_number: document.getElementById('job-number').value.trim(),
-            customer_name: document.getElementById('customer-name').value.trim(),
-            customer_address: document.getElementById('customer-address').value.trim(),
-            customer_phone: document.getElementById('customer-phone').value.trim(),
-            customer_email: document.getElementById('customer-email').value.trim(),
-            unit_info_notes: document.getElementById('unit-info-notes').value.trim(),
-        });
+        // --- Unit Persistence Logic (LocalStorage) ---
 
-        // Save job details to Firestore (debounced for less writing)
-        window.saveJobDetails = window.debounce(async () => {
-            if (!userId) return;
+        window.saveCurrentUnit = (value) => {
+            const unitName = value.trim() || DEFAULT_UNIT;
+            localStorage.setItem('hvac_current_unit', unitName);
+        };
 
-            const details = getJobDetails();
-            const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/job_details`);
+        const loadCurrentUnit = () => {
+            const savedUnit = localStorage.getItem('hvac_current_unit');
+            const unitInput = document.getElementById('current-unit-input');
             
-            try {
-                await setDoc(jobRef, { ...details, timestamp: serverTimestamp(), user_id: userId }, { merge: true });
-                // console.log("Job details saved.");
-            } catch (e) {
-                console.error("Error saving job details:", e);
-            }
-        }, 500);
-
-        // Load job details from Firestore
-        const loadJobDetails = async () => {
-            if (!userId) return;
-            const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/job_details`);
-
-            try {
-                const docSnap = await getDoc(jobRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    document.getElementById('work-order-number').value = data.work_order || '';
-                    document.getElementById('job-number').value = data.job_number || '';
-                    document.getElementById('customer-name').value = data.customer_name || '';
-                    document.getElementById('customer-address').value = data.customer_address || '';
-                    document.getElementById('customer-phone').value = data.customer_phone || '';
-                    document.getElementById('customer-email').value = data.customer_email || '';
-                    document.getElementById('unit-info-notes').value = data.unit_info_notes || '';
-                }
-            } catch (e) {
-                console.error("Error loading job details:", e);
+            if (savedUnit !== null) {
+                unitInput.value = savedUnit;
+            } else {
+                unitInput.value = DEFAULT_UNIT;
             }
         };
 
-
-        // --- Category Management (Unchanged) ---
+        // --- Category Management ---
 
         const fetchCategories = () => {
             if (!userId) return; 
@@ -514,7 +472,7 @@
             return categoryId;
         };
 
-        // --- Inventory Management (Unchanged) ---
+        // --- Inventory Management ---
 
         const fetchInventory = () => {
             if (!userId) return; 
@@ -747,14 +705,16 @@
                 (a.unit || DEFAULT_UNIT).localeCompare(b.unit || DEFAULT_UNIT)
             );
 
-            const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/current_job`);
-            
+            const jobData = {
+                items: JSON.stringify(sortedItems), // Store the whole array
+                timestamp: serverTimestamp(),
+                user_id: userId
+            };
+
             try {
-                await setDoc(jobRef, {
-                    items: JSON.stringify(sortedItems), // Store the whole array
-                    timestamp: serverTimestamp(),
-                    user_id: userId
-                });
+                // Use a fixed document ID for the current job state
+                const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/current_job`);
+                await setDoc(jobRef, jobData);
             } catch (e) {
                 console.error("Error saving current job state:", e);
             }
@@ -791,7 +751,7 @@
                         description: 'Standard Service Call Fee',
                         cost: 80.00,
                         quantity: 1,
-                        unit: DEFAULT_UNIT 
+                        unit: DEFAULT_UNIT // NEW: Default unit assigned
                     }];
                     showMessage("Starting new job.", 'bg-blue-100 text-blue-700');
                 }
@@ -804,17 +764,6 @@
             renderLineItems();
         };
 
-        // Helper to determine the unit for a new item (last unit used or default)
-        const getLastUsedUnit = () => {
-            // Find the unit of the last item in the list
-            if (window.lineItems.length > 0) {
-                const lastItem = window.lineItems[window.lineItems.length - 1];
-                return lastItem.unit || DEFAULT_UNIT;
-            }
-            return DEFAULT_UNIT;
-        }
-
-
         // --- Calculator Core Logic ---
 
         // Function to select an inventory part and add it to line items
@@ -823,7 +772,7 @@
             selector.value = ''; // Reset selector after selection
 
             const part = window.inventory.find(p => p.id === partId);
-            const currentUnit = getLastUsedUnit(); // Use the last used unit
+            const currentUnit = document.getElementById('current-unit-input').value.trim() || DEFAULT_UNIT;
 
             if (part) {
                 window.lineItems.push({
@@ -831,7 +780,7 @@
                     description: part.name,
                     cost: part.cost,
                     quantity: 1,
-                    unit: currentUnit
+                    unit: currentUnit // NEW: Assign current unit
                 });
                 renderLineItems();
                 showMessage(`Added item "${part.name}" to the estimate.`, 'bg-blue-100 text-blue-700');
@@ -926,14 +875,14 @@
 
         // Function to add a new ad-hoc line item
         window.addLineItem = () => {
-            const currentUnit = getLastUsedUnit(); // Use the last used unit
+            const currentUnit = document.getElementById('current-unit-input').value.trim() || DEFAULT_UNIT;
 
             window.lineItems.push({
                 id: itemIdCounter++,
                 description: 'Ad-hoc Item/Service',
                 cost: 0.00,
                 quantity: 1,
-                unit: currentUnit
+                unit: currentUnit // NEW: Assign current unit
             });
             renderLineItems();
         };
@@ -1003,21 +952,14 @@
                 (a.unit || DEFAULT_UNIT).localeCompare(b.unit || DEFAULT_UNIT)
             );
 
-            const details = getJobDetails(); // Get all job details
-            
             const estimateData = {
-                // Job & Customer Details
-                work_order: details.work_order,
-                job_number: details.job_number,
-                unit_info_notes: details.unit_info_notes,
                 customer: {
-                    name: details.customer_name,
-                    address: details.customer_address,
-                    phone: details.customer_phone,
-                    email: details.customer_email,
+                    name: customerName,
+                    address: document.getElementById('customer-address').value.trim(),
+                    phone: document.getElementById('customer-phone').value.trim(),
+                    email: document.getElementById('customer-email').value.trim(),
                 },
-
-                // Line Items & Totals
+                // Serialize lineItems to prevent Firestore nested array issues
                 items: JSON.stringify(sortedItems.map(item => ({
                     description: item.description,
                     cost: item.cost,
@@ -1045,19 +987,12 @@
         };
 
         window.generateEstimateText = () => {
-            const details = getJobDetails();
             let emailBody = "HVAC Service Job Estimate\n\n";
-            
-            emailBody += "--- Job Details ---\n";
-            emailBody += `Work Order #: ${details.work_order || 'N/A'}\n`;
-            emailBody += `Job #: ${details.job_number || 'N/A'}\n`;
-            emailBody += "\n--- Customer & Location ---\n";
-            emailBody += `Name: ${details.customer_name || 'N/A'}\n`;
-            emailBody += `Address: ${details.customer_address || 'N/A'}\n`;
-            emailBody += `Phone: ${details.customer_phone || 'N/A'}\n`;
-            emailBody += `Email: ${details.customer_email || 'N/A'}\n`;
-            emailBody += `\n--- General Unit/Access Info ---\n`;
-            emailBody += `${details.unit_info_notes || 'No general notes recorded.'}\n\n`;
+            emailBody += "--- Customer Details ---\n";
+            emailBody += `Name: ${document.getElementById('customer-name').value.trim() || 'N/A'}\n`;
+            emailBody += `Address: ${document.getElementById('customer-address').value.trim() || 'N/A'}\n`;
+            emailBody += `Phone: ${document.getElementById('customer-phone').value.trim() || 'N/A'}\n`;
+            emailBody += `Email: ${document.getElementById('customer-email').value.trim() || 'N/A'}\n\n`;
 
             emailBody += "--- Itemized Services & Parts ---\n";
             
@@ -1121,7 +1056,7 @@
         window.signInWithGoogle = signInWithGoogle; 
         window.signOutUser = signOutUser; 
         window.saveMarginAndRecalculate = saveMarginAndRecalculate; 
-        // saveCurrentUnit is removed as its input field is gone.
+        window.saveCurrentUnit = saveCurrentUnit; // Exposed for HTML input
     </script>
 </body>
 </html>
