@@ -3,1060 +3,652 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HVAC Service Job Estimator</title>
-    <!-- Load Tailwind CSS -->
+    <title>HVAC Field Service Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use Inter font family -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .input-field {
-            @apply p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 w-full;
-        }
-        .btn-primary {
-            @apply p-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-200 shadow-md;
-        }
-        .btn-secondary {
-            @apply p-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition duration-200 shadow-md;
-        }
-        .scrollable-list {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.5rem;
-        }
-        /* Custom Google button style for better integration */
+        .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; }
+        .unit-tab-active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        input:checked + label { background-color: #eff6ff; color: #2563eb; font-weight: 500; }
+        #serviceListContainer { max-height: 65vh; overflow-y: auto; }
+        .input-field { @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm; }
+        
+        /* Google Button Style */
         .btn-google {
-            @apply p-3 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-100 transition duration-200 shadow-sm flex items-center justify-center space-x-2;
-        }
-        /* Style for the unit header rows */
-        .unit-header {
-            @apply bg-blue-100/70 text-blue-800 font-bold uppercase text-xs sticky top-0 shadow-sm;
+            @apply px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition duration-200 shadow-sm flex items-center justify-center space-x-2 text-sm;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-100 text-gray-800">
 
-    <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="mb-8 flex flex-col md:flex-row md:justify-between md:items-center">
-            <div class="flex items-center space-x-4"> <!-- Added flex container for logo and title -->
-                <img src="https://imageview.mechanicaltemp.com/objects/uploads/d16ab63e-1d1e-4b8f-863c-67e66e4894fc" alt="Company Logo" class="h-12 sm:h-16 w-auto"> <!-- Logo added here -->
+    <div id="loading-indicator" class="fixed inset-0 bg-white z-50 flex items-center justify-center flex-col">
+        <svg class="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-blue-600 font-medium">Connecting to Database...</span>
+    </div>
+
+    <div class="container mx-auto p-4 max-w-6xl">
+
+        <header class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center space-x-4 mb-4 md:mb-0">
+                <img src="https://imageview.mechanicaltemp.com/objects/uploads/d16ab63e-1d1e-4b8f-863c-67e66e4894fc" alt="Logo" class="h-12 w-auto">
                 <div>
-                    <h1 class="text-4xl font-extrabold text-blue-800 tracking-tight">HVAC Job Cost Calculator</h1>
-                    <p class="text-gray-500 mt-1">Create professional, margin-controlled service estimates quickly.</p>
+                    <h1 class="text-2xl font-bold text-gray-900">HVAC Service Pro</h1>
+                    <p class="text-xs text-green-600 font-semibold" id="connection-status">● Database Connected</p>
                 </div>
             </div>
-            <!-- LOGIN/LOGOUT BUTTON AREA -->
-            <div id="auth-ui" class="mt-4 md:mt-0">
-                <button onclick="signInWithGoogle()" id="google-sign-in" class="btn-google">
-                    <svg class="h-5 w-5" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M43.611 20.083H42V20H24v8h11.341c-1.411 3.29-3.921 5.757-7.234 7.218l.215 1.543 5.483 4.298c3.398-3.111 6.136-7.538 7.399-13.522z" fill="#4285F4" />
-                        <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-5.483-4.298c-1.895 1.393-4.385 2.505-7.926 2.505-5.405 0-9.946-3.613-11.667-8.48H5.291l-1.636 1.303L4.949 39.43c3.551 7.265 10.947 12.57 19.051 12.57z" fill="#34A853" />
-                        <path d="M12.333 28.361c-.319-1.353-.478-2.781-.478-4.361s.159-3.008.478-4.361L3.66 12.788l-.756 1.635C2.083 17.56 1.487 20.768 1.487 24s.596 6.44-2.913 9.577l7.859 6.126z" fill="#FBBC05" />
-                        <path d="M24 16c3.085 0 5.874 1.156 8.136 3.419l6.347-6.19C33.626 5.673 28.85 3.5 24 3.5c-8.104 0-15.5 5.305-19.051 12.57l7.731 6.035c1.72-4.867 6.261-8.48 11.667-8.48z" fill="#EA4335" />
-                        <path d="M43.611 20.083L43.5 20H24v8h11.341c-1.411 3.29-3.921 5.757-7.234 7.218l-.215 1.543.082.064.004.003 5.483 4.298c3.398-3.111 6.136-7.538 7.399-13.522L43.611 20.083z" fill="url(#a)" /><defs><linearGradient id="a" x1="-10.743" x2="44.275" y1="20.083" y2="20.083" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3377F4" /><stop offset="1" stop-color="#76B5F5" /></linearGradient></defs>
-                    </svg>
-                    <span id="auth-status-text">Sign In with Google</span>
-                </button>
-                <button onclick="signOutUser()" id="google-sign-out" class="btn-secondary hidden mt-2 w-full text-sm">Sign Out</button>
+            
+            <div class="flex flex-col items-end space-y-2">
+                <div id="auth-ui">
+                    <button id="google-sign-in" class="btn-google">
+                        <i class="fab fa-google text-blue-500"></i>
+                        <span>Sign In to Save/Load</span>
+                    </button>
+                    <div id="user-panel" class="hidden flex items-center space-x-3">
+                        <span id="user-email" class="text-sm text-gray-600 font-medium"></span>
+                        <button id="google-sign-out" class="text-sm text-red-500 hover:text-red-700 underline">Sign Out</button>
+                    </div>
+                </div>
             </div>
         </header>
 
-        <!-- Loading Indicator -->
-        <div id="loading-indicator" class="flex items-center justify-center p-8 bg-white shadow-lg rounded-xl mb-6 hidden">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span class="text-blue-600 font-medium">Initializing...</span>
-        </div>
+        <div id="message-box" class="hidden p-4 rounded-lg text-sm mb-6 transition-opacity duration-300 font-semibold text-center" role="alert"></div>
 
-        <!-- System Message Box -->
-        <div id="message-box" class="hidden p-4 rounded-lg text-sm mb-6 transition-opacity duration-300" role="alert"></div>
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Main Application Content (Initially Disabled) -->
-        <div id="app-content" class="space-y-8 opacity-50 pointer-events-none">
-            
-            <!-- Inventory and Customer Info Layout -->
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <!-- Customer Information Section -->
-                <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-2">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Customer & Job Details</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input type="text" id="customer-name" placeholder="Customer Name" class="input-field">
-                        <input type="text" id="customer-address" placeholder="Job Address" class="input-field">
-                        <input type="tel" id="customer-phone" placeholder="Phone Number" class="input-field">
-                        <input type="email" id="customer-email" placeholder="Email Address (Optional)" class="input-field">
+            <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md flex flex-col h-full">
+                <h3 class="font-bold text-lg mb-2 text-gray-800">Quick Select Services</h3>
+                <div class="flex border-b mb-4 flex-shrink-0 text-sm overflow-x-auto">
+                    <button data-tab="residential" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg tab-active">Residential</button>
+                    <button data-tab="commercial" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg">Commercial</button>
+                </div>
+                <div id="serviceListContainer" class="flex-grow pr-2">
                     </div>
-                </section>
-
-                <!-- Part Inventory Management Section -->
-                <section class="bg-white p-6 rounded-xl shadow-lg xl:col-span-1">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Part & Service Inventory</h2>
-
-                    <div class="space-y-3 p-3 bg-blue-50 rounded-lg">
-                        <h3 class="text-sm font-bold text-blue-700">Add New Item</h3>
-                        
-                        <!-- Category Selector -->
-                        <select id="part-category-select" class="input-field p-2 text-sm" onchange="checkNewCategory(this.value)">
-                            <option value="" disabled selected>-- Select/Enter Category --</option>
-                            <!-- Options filled by JS --></select>
-                        <input type="text" id="new-category-input" placeholder="New Category Name (e.g., Plumbing)" class="input-field p-2 text-sm hidden">
-
-                        <input type="text" id="part-name" placeholder="Item Name (e.g., Motor Replacement)" class="input-field p-2 text-sm">
-                        <input type="text" id="part-number" placeholder="Part Number (Optional)" class="input-field p-2 text-sm">
-                        <input type="text" id="part-brand" placeholder="Brand (Optional)" class="input-field p-2 text-sm">
-                        <input type="number" id="part-cost" min="0" step="0.01" placeholder="Cost to Business ($)" class="input-field p-2 text-sm">
-                        <button onclick="saveInventoryPart()" class="w-full p-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition duration-150">
-                            + Save New Item to Inventory
-                        </button>
-                    </div>
-                    
-                    <h3 class="text-md font-medium text-gray-700 mt-4 mb-2 border-b pb-1">Filter Inventory List</h3>
-                    <div class="space-y-2 mb-4">
-                        <select id="filter-category" class="input-field p-2 text-sm" onchange="renderInventory()">
-                            <option value="">All Categories</option>
-                            <!-- Options filled by JS --></select>
-                        <input type="text" id="filter-name" placeholder="Filter by Name/Part No./Brand" class="input-field p-2 text-sm" oninput="renderInventory()">
-                    </div>
-
-                    <div id="inventory-list" class="scrollable-list bg-gray-50 p-2 text-xs">
-                        <p class="text-gray-400 text-center py-4">Sign in to load your parts...</p>
-                        <!-- Inventory parts will be loaded here -->
-                    </div>
-                </section>
             </div>
 
-            <!-- Line Items Section -->
-            <section class="bg-white p-6 rounded-xl shadow-lg mb-8">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Job Line Items (Cost to Business)</h2>
-
-                <!-- Unit Selector and Quick Add for New Items -->
-                <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4 p-3 bg-gray-50 rounded-lg border">
-                    <label for="current-unit-input" class="whitespace-nowrap font-medium text-gray-700 text-sm">Current Unit/System:</label>
-                    <input type="text" id="current-unit-input" placeholder="e.g., RTU-1, AHU-B" value="General/Unassigned" 
-                           class="input-field p-2 text-sm flex-grow bg-white" oninput="saveCurrentUnit(this.value)">
-
-                    <label for="inventory-selector" class="whitespace-nowrap font-medium text-gray-700 text-sm hidden sm:block">Quick Add:</label>
-                    <select id="inventory-selector" onchange="selectPartForJob(this.value)" class="input-field p-2 text-sm flex-grow">
-                        <option value="" disabled selected>-- Select a Part or Service from Inventory --</option>
-                        <!-- Inventory parts will be loaded here --></select>
+            <div id="jobDetailsPanel" class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                
+                <div class="mb-6 border-b pb-4">
+                    <h2 class="text-xl font-bold mb-4 flex justify-between">
+                        <span>Customer Information</span>
+                        <button id="saveCloudBtn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 hidden">
+                            <i class="fa fa-cloud-upload-alt mr-1"></i> Save to Cloud
+                        </button>
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <input type="text" id="customerName" placeholder="Name" class="input-field">
+                        <input type="text" id="customerContact" placeholder="Phone / Email" class="input-field">
+                        <input type="text" id="customerAddress" placeholder="Service Address" class="input-field sm:col-span-2">
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead>
-                            <tr class="text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                                <!-- Added Unit/System column for quick sorting/filtering -->
-                                <th class="px-3 py-3 text-left w-3/12">Unit/System</th>
-                                <th class="px-3 py-3 text-left w-5/12">Description</th>
-                                <th class="px-3 py-3 text-right w-1/12">Cost ($)</th>
-                                <th class="px-3 py-3 text-right w-1/12">Qty</th>
-                                <th class="px-3 py-3 text-right w-1/12">Item Cost</th>
-                                <th class="px-3 py-3 text-right w-1/12">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="line-items-body" class="bg-white divide-y divide-gray-200">
-                            <!-- Line items grouped by unit will be inserted here by JavaScript -->
-                        </tbody>
-                    </table>
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold">Units / Systems</h2>
+                        <div class="flex space-x-2">
+                            <button id="addUnitBtn" class="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded hover:bg-blue-200">+ Add Unit</button>
+                            <button id="removeUnitBtn" class="px-3 py-1 bg-red-100 text-red-700 text-sm font-semibold rounded hover:bg-red-200"><i class="fa fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div id="unitTabs" class="flex items-center space-x-1 border-b border-gray-200 overflow-x-auto pb-1 mb-4">
+                        </div>
+                    <div id="unitDetailsContainer">
+                        </div>
                 </div>
 
-                <button onclick="addLineItem()" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-150 shadow-md">
-                    + Add Line Item
-                </button>
-            </section>
+                <div class="mt-8 border-t pt-6">
+                    <h2 class="text-xl font-bold mb-2">Custom Parts & Inventory</h2>
+                    
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4">
+                        <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                            <select id="inventory-selector" class="input-field flex-grow">
+                                <option value="" disabled selected>-- Quick Add from Inventory --</option>
+                            </select>
+                            <button id="addInventoryItemBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 whitespace-nowrap">Add</button>
+                        </div>
+                        <div class="text-center text-xs text-gray-500 font-medium">OR Add Custom Manual Item</div>
+                        <div class="flex flex-col sm:flex-row gap-2 mt-2">
+                            <input type="text" id="customPartName" placeholder="Description" class="input-field flex-[2]">
+                            <input type="number" id="customPartCost" placeholder="Cost ($)" class="input-field flex-1">
+                            <input type="number" id="customPartQty" placeholder="Qty" value="1" class="input-field w-20">
+                            <button id="addCustomLineItemBtn" class="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800">Add</button>
+                        </div>
+                    </div>
 
-            <!-- Summary & Margin Adjustment Section -->
-            <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Totals Card -->
-                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Summary</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2">Description</th>
+                                    <th class="px-4 py-2 text-right">Cost</th>
+                                    <th class="px-4 py-2 text-right">Qty</th>
+                                    <th class="px-4 py-2 text-center">Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody id="combinedLineItemsBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-lg">
-                            <span class="text-gray-600">Total Material & Labor Cost:</span>
-                            <span id="subtotal" class="font-bold text-gray-800">$0.00</span>
+                <div class="mt-8 bg-slate-800 text-white p-6 rounded-lg shadow-lg">
+                    <h3 class="font-bold text-lg mb-4 text-slate-300 border-b border-slate-600 pb-2">Financial Summary</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-sm">Labor Hours (Auto/Manual):</label>
+                                <input type="number" id="laborHours" class="w-20 p-1 text-black rounded text-center" step="0.5">
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <label class="text-sm">Labor Rate ($/hr):</label>
+                                <input type="number" id="laborRate" class="w-20 p-1 text-black rounded text-center" value="125">
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <label class="text-sm">Trip/Truck Charge:</label>
+                                <input type="number" id="tripCharge" class="w-20 p-1 text-black rounded text-center" value="45">
+                            </div>
                         </div>
 
-                        <div class="flex justify-between items-center border-t pt-3">
-                            <label for="profit-margin" class="text-gray-600 flex items-center">
-                                <span>Target Profit Margin:</span>
-                                <!-- Margin value is set to 25% here, but will be overwritten by JS if localStorage has a value -->
-                                <input type="number" id="profit-margin" value="25" min="0" max="100" class="w-16 ml-3 text-right border rounded-lg px-2 py-1 focus:ring-blue-500 focus:border-blue-500" oninput="saveMarginAndRecalculate(this.value)">
-                                <span class="ml-1 text-xl font-bold text-blue-600">%</span>
-                            </label>
-                            <span id="margin-amount" class="font-bold text-blue-600">$0.00</span>
-                        </div>
-
-                        <div class="flex justify-between items-center text-2xl font-extrabold text-green-700 border-t-4 border-double border-green-200 pt-4">
-                            <span>Customer Final Price:</span>
-                            <span id="grand-total">$0.00</span>
+                        <div class="space-y-2 text-right">
+                            <div class="flex justify-between"><span>Parts Cost:</span> <span id="totalParts" class="font-mono">$0.00</span></div>
+                            <div class="flex justify-between"><span>Labor Cost:</span> <span id="totalLabor" class="font-mono">$0.00</span></div>
+                            <div class="flex justify-between border-t border-slate-600 pt-2 font-bold"><span>Subtotal (Cost):</span> <span id="subtotalCost" class="font-mono">$0.00</span></div>
+                            
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-600">
+                                <div class="flex items-center">
+                                    <span class="mr-2 text-sm">Target Margin:</span>
+                                    <input type="number" id="marginPercent" class="w-16 p-1 text-black rounded text-center font-bold" value="50">
+                                    <span class="ml-1">%</span>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-slate-400">Customer Price</div>
+                                    <div id="grandTotal" class="text-2xl font-bold text-green-400 font-mono">$0.00</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Actions Card -->
-                <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg flex flex-col space-y-4">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Actions</h2>
-                    <button onclick="saveEstimate()" class="btn-primary">
-                        💾 Save Estimate to Database
+                <div class="mt-6 flex flex-col sm:flex-row gap-4">
+                    <select id="pdfOption" class="input-field sm:w-1/3">
+                        <option value="t&m">Show Breakdown (T&M)</option>
+                        <option value="flatRate">Show Flat Rate Only</option>
+                    </select>
+                    <button id="generatePdfBtn" class="flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-700 transition">
+                        <i class="fa fa-file-pdf mr-2"></i> Generate PDF
                     </button>
-                    <button onclick="generateEstimateText()" class="btn-secondary">
-                        📧 Generate Email/Copy Text
-                    </button>
-                    <div id="user-id-display" class="text-xs text-gray-400 mt-4 break-words">Status: Not Signed In</div>
                 </div>
-            </section>
-        </div>
 
+            </div>
+        </main>
     </div>
 
-    <!-- Firebase Imports and Setup -->
+    <input type="file" id="photoInput" class="hidden" accept="image/*" capture="camera">
+
     <script type="module">
-        // 1. Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 2. Firebase Configuration (From User's Input)
+        // --- 1. CONFIGURATION ---
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyDYjrKUuujTaaUe6AIhhcIcmHc93KTQI1M",
             authDomain: "hvac-service-proposal-tool.firebaseapp.com",
             projectId: "hvac-service-proposal-tool",
             storageBucket: "hvac-service-proposal-tool.firebasestorage.app",
             messagingSenderId: "10017474274",
-            appId: "1:10017474274:web:1f64fe7b7edb807d3900bb",
-            measurementId: "G-YKD6RVX80F"
+            appId: "1:10017474274:web:1f64fe7b7edb807d3900bb"
         };
-        
-        const appId = FIREBASE_CONFIG.appId; 
+        const { jsPDF } = window.jspdf;
 
-        let app, db, auth, userId = null;
-        let unsubscribeInventory = null; 
-        let unsubscribeCategories = null;
+        // --- 2. DATA CONSTANTS (Quick Checklists) ---
+        const quickJobs = {
+            acMaintenance: { title: 'A/C Maintenance', cost: 15, labor: 1.5 },
+            furnaceMaintenance: { title: 'Furnace Maintenance', cost: 15, labor: 1.5 },
+            diagnostic: { title: 'Diagnostic / Service Call', cost: 0, labor: 1.0 },
+            capacitor: { title: 'Capacitor Replacement', cost: 25, labor: 0.5 },
+            contactor: { title: 'Contactor Replacement', cost: 20, labor: 0.5 },
+            recharge: { title: 'Refrigerant Recharge (lb)', cost: 35, labor: 0.5 },
+            leakSearch: { title: 'Leak Search', cost: 10, labor: 1.5 },
+            coilClean: { title: 'Chem Clean Coils', cost: 25, labor: 1.0 },
+            blowerMotor: { title: 'Blower Motor (Generic)', cost: 150, labor: 2.0 },
+            condenserMotor: { title: 'Condenser Fan Motor', cost: 120, labor: 1.5 },
+            ignitor: { title: 'Hot Surface Ignitor', cost: 40, labor: 0.5 },
+            flameSensor: { title: 'Flame Sensor Clean/Repl', cost: 15, labor: 0.5 },
+            drainClear: { title: 'Clear Drain Line', cost: 5, labor: 1.0 }
+        };
 
-        // Global data stores
-        window.lineItems = [];
-        window.inventory = [];
-        window.categories = [];
-        let itemIdCounter = 1;
-        const DEFAULT_UNIT = 'General/Unassigned';
+        const serviceCategories = {
+            residential: ["acMaintenance", "furnaceMaintenance", "diagnostic", "capacitor", "contactor", "recharge", "leakSearch", "coilClean", "drainClear", "ignitor"],
+            commercial: ["diagnostic", "acMaintenance", "furnaceMaintenance", "recharge", "blowerMotor", "condenserMotor", "contactor", "capacitor"]
+        };
 
-        // Set Firestore log level for debugging
-        setLogLevel('Debug');
+        // --- 3. STATE MANAGEMENT ---
+        let app, auth, db, userId;
+        let units = [];
+        let activeUnitId = null;
+        let customLineItems = []; // { id, description, cost, qty, unitId }
+        let inventory = []; // From Firestore
 
-        // Initial setup function
-        const initializeFirebase = async () => {
-            document.getElementById('loading-indicator').classList.remove('hidden');
-
-            try {
-                // 1. Initialize Firebase App using the provided config
-                app = initializeApp(FIREBASE_CONFIG);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                
-                // 2. Set up Auth State Listener (Crucial for handling sign-in/out)
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        // User is signed in
-                        handleSignIn(user);
-                    } else {
-                        // User is signed out
-                        handleSignOut();
-                    }
-                    // Hide loading indicator only after initial auth check
-                    document.getElementById('loading-indicator').classList.add('hidden');
-                });
-
-            } catch (error) {
-                console.error("Firebase Initialization Error:", error);
-                showMessage(`CRITICAL ERROR: Initialization failed. ${error.message}. Please check console for details.`, 'bg-red-100 text-red-700');
+        // --- 4. FIREBASE INIT ---
+        try {
+            app = initializeApp(FIREBASE_CONFIG);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            onAuthStateChanged(auth, (user) => {
                 document.getElementById('loading-indicator').classList.add('hidden');
-            }
-        };
-
-        // --- Authentication Functions ---
-
-        // Function to handle successful sign-in
-        const handleSignIn = (user) => {
-            userId = user.uid;
-            document.getElementById('auth-status-text').textContent = `Signed in as ${user.displayName || user.email}`;
-            document.getElementById('google-sign-in').classList.add('hidden');
-            document.getElementById('google-sign-out').classList.remove('hidden');
-            document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
-            
-            // Enable app content
-            const appContent = document.getElementById('app-content');
-            appContent.classList.remove('opacity-50', 'pointer-events-none');
-
-            showMessage("Welcome! Database connection secure.", 'bg-green-100 text-green-700');
-            
-            // Start fetching data
-            fetchCategories(); 
-            fetchInventory(); 
-            addDefaultServiceItems(); 
-            loadCurrentUnit(); // Load the saved unit
-            loadCurrentJob(); // Load the user's last saved job
-        };
-
-        // Function to handle sign-out
-        const handleSignOut = () => {
-            userId = null;
-            document.getElementById('auth-status-text').textContent = `Sign In with Google`;
-            document.getElementById('google-sign-in').classList.remove('hidden');
-            document.getElementById('google-sign-out').classList.add('hidden');
-            document.getElementById('user-id-display').textContent = `Status: Not Signed In`;
-
-            // Disable app content
-            const appContent = document.getElementById('app-content');
-            appContent.classList.add('opacity-50', 'pointer-events-none');
-            showMessage("Please sign in to access and save your data.", 'bg-yellow-100 text-yellow-700');
-
-            // Clean up real-time listeners
-            if (unsubscribeInventory) unsubscribeInventory();
-            if (unsubscribeCategories) unsubscribeCategories();
-
-            // Clear local data display
-            window.inventory = [];
-            window.categories = [];
-            window.lineItems = []; 
-            renderInventory(); 
-            renderInventorySelector(); 
-            renderLineItems();
-        };
-
-        // Exposed function to sign in with Google
-        window.signInWithGoogle = async () => {
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                console.error("Google Sign-In Error:", error);
-                const errorMessage = error.message.includes('auth/popup-closed-by-user') ? 
-                                     "Sign-in cancelled." : 
-                                     `Authentication failed: ${error.message}`;
-                showMessage(errorMessage, 'bg-red-100 text-red-700');
-            }
-        };
-
-        // Exposed function to sign out
-        window.signOutUser = async () => {
-            try {
-                await signOut(auth);
-                showMessage("Successfully signed out.", 'bg-blue-100 text-blue-700');
-            } catch (error) {
-                console.error("Sign Out Error:", error);
-                showMessage(`Sign out failed: ${e.message}`, 'bg-red-100 text-red-700');
-            }
-        };
-
-
-        // --- Utility Functions ---
-
-        window.showMessage = (message, className) => {
-            const box = document.getElementById('message-box');
-            box.textContent = message;
-            box.className = `${className} p-4 rounded-lg text-sm mb-6 transition-opacity duration-300`;
-            box.classList.remove('hidden');
-            setTimeout(() => {
-                box.classList.add('hidden');
-            }, 5000);
-        };
-
-        window.formatCurrency = (amount) => {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-        };
-
-        window.debounce = (func, delay) => {
-            let timeoutId;
-            return function(...args) {
-                clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => {
-                    func.apply(this, args);
-                }, delay);
-            };
-        };
-        
-        // --- Unit Persistence Logic (LocalStorage) ---
-
-        window.saveCurrentUnit = (value) => {
-            const unitName = value.trim() || DEFAULT_UNIT;
-            localStorage.setItem('hvac_current_unit', unitName);
-        };
-
-        const loadCurrentUnit = () => {
-            const savedUnit = localStorage.getItem('hvac_current_unit');
-            const unitInput = document.getElementById('current-unit-input');
-            
-            if (savedUnit !== null) {
-                unitInput.value = savedUnit;
-            } else {
-                unitInput.value = DEFAULT_UNIT;
-            }
-        };
-
-        // --- Category Management ---
-
-        const fetchCategories = () => {
-            if (!userId) return; 
-
-            if (unsubscribeCategories) unsubscribeCategories();
-
-            const categoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_categories`);
-
-            unsubscribeCategories = onSnapshot(categoryRef, (snapshot) => {
-                window.categories = [];
-                snapshot.forEach(doc => {
-                    window.categories.push({ id: doc.id, ...doc.data() });
-                });
-                renderCategorySelectors();
-            }, (error) => {
-                console.error("Error fetching categories:", error);
-                showMessage("Could not load categories.", 'bg-red-100 text-red-700');
-            });
-        };
-        
-        const renderCategorySelectors = () => {
-            const addSelector = document.getElementById('part-category-select');
-            const filterSelector = document.getElementById('filter-category');
-
-            // Clear and reset Add selector
-            addSelector.innerHTML = '<option value="" disabled selected>-- Select/Enter Category --</option>';
-            window.categories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.id;
-                option.textContent = cat.name;
-                addSelector.appendChild(option);
-            });
-            addSelector.innerHTML += '<option value="__NEW__">-- Add New Category --</option>';
-
-            // Clear and reset Filter selector
-            filterSelector.innerHTML = '<option value="">All Categories</option>';
-            window.categories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.id;
-                option.textContent = cat.name;
-                filterSelector.appendChild(option);
-            });
-            renderInventory(); 
-        };
-
-        window.checkNewCategory = (value) => {
-            const newCatInput = document.getElementById('new-category-input');
-            if (value === '__NEW__') {
-                newCatInput.classList.remove('hidden');
-                newCatInput.focus();
-            } else {
-                newCatInput.classList.add('hidden');
-                newCatInput.value = '';
-            }
-        };
-
-        const saveNewCategory = async (name) => {
-            if (!userId) {
-                showMessage("Please sign in to save data.", 'bg-red-100 text-red-700');
-                return;
-            }
-            const categoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_categories`);
-            // Sanitize name for Firestore ID
-            const categoryId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-            const newDocRef = doc(categoryRef, categoryId);
-
-            await setDoc(newDocRef, {
-                name: name,
-                timestamp: serverTimestamp(),
-                user_id: userId
-            }, { merge: true });
-            
-            return categoryId;
-        };
-
-        // --- Inventory Management ---
-
-        const fetchInventory = () => {
-            if (!userId) return; 
-
-            if (unsubscribeInventory) unsubscribeInventory();
-
-            const inventoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_inventory`);
-
-            unsubscribeInventory = onSnapshot(inventoryRef, (snapshot) => {
-                window.inventory = [];
-                snapshot.forEach(doc => {
-                    window.inventory.push({ id: doc.id, ...doc.data() });
-                });
-                renderInventory(); 
-                renderInventorySelector(); 
-            }, (error) => {
-                console.error("Error fetching inventory:", error);
-                showMessage("Could not load inventory parts.", 'bg-red-100 text-red-700');
-            });
-        };
-
-        // Add default service items if they don't exist
-        const defaultItems = [
-            { name: "Standard Service Call Fee", cost: 80.00, category: "Service/Labor" }, // Initial Default Item
-            { name: "Standard Labor Rate (1 hour)", cost: 75.00, category: "Service/Labor" },
-            { name: "Truck/Trip Charge", cost: 45.00, category: "Service/Labor" },
-            { name: "AC Filter 16x25x1", cost: 8.50, part_number: "F16251", brand: "Generic", category: "Parts" }
-        ];
-
-        const addDefaultServiceItems = async () => {
-            if (!userId) return;
-
-            const inventoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_inventory`);
-            const categoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_categories`);
-
-            for (const item of defaultItems) {
-                const categoryId = item.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                
-                // Ensure category exists
-                await setDoc(doc(categoryRef, categoryId), { name: item.category, timestamp: serverTimestamp(), user_id: userId }, { merge: true });
-
-                // Check if item exists (simple check by name)
-                const q = query(inventoryRef, where('name', '==', item.name));
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty) {
-                    const docId = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
-                    await setDoc(doc(inventoryRef, docId), {
-                        name: item.name,
-                        cost: item.cost,
-                        category: categoryId,
-                        part_number: item.part_number || '',
-                        brand: item.brand || '',
-                        timestamp: serverTimestamp(),
-                        user_id: userId
-                    });
-                }
-            }
-        };
-        
-        // Render Inventory List with filtering and sorting
-        window.renderInventory = () => {
-            const listContainer = document.getElementById('inventory-list');
-            listContainer.innerHTML = '';
-            
-            if (!userId) {
-                listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Sign in to load your parts...</p>';
-                return;
-            }
-
-            const filterName = document.getElementById('filter-name').value.toLowerCase();
-            const filterCatId = document.getElementById('filter-category').value;
-
-            let filteredInventory = window.inventory.filter(part => {
-                const nameMatch = (part.name || '').toLowerCase().includes(filterName);
-                const numberMatch = (part.part_number || '').toLowerCase().includes(filterName);
-                const brandMatch = (part.brand || '').toLowerCase().includes(filterName);
-                
-                const categoryMatch = !filterCatId || filterCatId === "" || part.category === filterCatId;
-
-                return (nameMatch || numberMatch || brandMatch) && categoryMatch;
-            });
-            
-            if (filteredInventory.length === 0) {
-                listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">No matching parts found.</p>';
-                return;
-            }
-            
-            // Sort by Name for presentation
-            filteredInventory.sort((a, b) => a.name.localeCompare(b.name));
-
-            filteredInventory.forEach(part => {
-                const categoryName = window.categories.find(c => c.id === part.category)?.name || 'Uncategorized';
-                
-                const listItem = document.createElement('div');
-                listItem.className = 'flex flex-col p-2 hover:bg-white border-b last:border-b-0 cursor-pointer group';
-                listItem.onclick = () => selectPartForJob(part.id); 
-                
-                listItem.innerHTML = `
-                    <div class="flex justify-between items-start text-sm">
-                        <span class="font-medium text-gray-900 truncate pr-2">${part.name}</span>
-                        <span class="font-bold text-blue-600 whitespace-nowrap">${formatCurrency(part.cost)}</span>
-                    </div>
-                    <div class="flex justify-between items-center text-xs text-gray-500">
-                        <span class="truncate pr-2 italic">${part.brand ? part.brand + ' / ' : ''}${part.part_number || ''}</span>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-xs font-semibold text-gray-400">(${categoryName})</span>
-                            <button onclick="event.stopPropagation(); deleteInventoryPart('${part.id}')" class="text-red-400 hover:text-red-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                                &times;
-                            </button>
-                        </div>
-                    </div>
-                `;
-                listContainer.appendChild(listItem);
-            });
-        };
-        
-        const renderInventorySelector = () => {
-             const selector = document.getElementById('inventory-selector');
-             selector.innerHTML = '<option value="" disabled selected>-- Select a Part or Service from Inventory --</option>';
-
-             if (!userId || window.inventory.length === 0) return;
-
-             // Group inventory items by category
-             const categorizedItems = window.inventory.reduce((acc, item) => {
-                 const catName = window.categories.find(c => c.id === item.category)?.name || 'Uncategorized';
-                 if (!acc[catName]) acc[catName] = [];
-                 acc[catName].push(item);
-                 return acc;
-             }, {});
-
-             // Populate the quick-add selector using optgroups
-             Object.keys(categorizedItems).sort().forEach(categoryName => {
-                 const optgroup = document.createElement('optgroup');
-                 optgroup.label = categoryName;
-
-                 categorizedItems[categoryName].sort((a, b) => a.name.localeCompare(b.name)).forEach(part => {
-                     const option = document.createElement('option');
-                     option.value = part.id;
-                     option.textContent = `${part.name} (${formatCurrency(part.cost)})`;
-                     optgroup.appendChild(option);
-                 });
-                 selector.appendChild(optgroup);
-             });
-        };
-        
-        window.saveInventoryPart = async () => {
-            if (!userId) {
-                showMessage("Please sign in to save parts to inventory.", 'bg-red-100 text-red-700');
-                return;
-            }
-
-            const name = document.getElementById('part-name').value.trim();
-            const costInput = document.getElementById('part-cost').value;
-            const cost = parseFloat(costInput) || 0;
-            let categoryId = document.getElementById('part-category-select').value;
-            const newCategoryName = document.getElementById('new-category-input').value.trim();
-            
-            const partNumber = document.getElementById('part-number').value.trim();
-            const brand = document.getElementById('part-brand').value.trim();
-
-            if (!name || cost <= 0 || !categoryId) {
-                showMessage("Please enter a valid Item Name, Cost, and Category.", 'bg-yellow-100 text-yellow-700');
-                return;
-            }
-
-            // Handle new category creation
-            if (categoryId === '__NEW__') {
-                if (!newCategoryName) {
-                    showMessage("Please enter a name for the new category.", 'bg-yellow-100 text-yellow-700');
-                    return;
-                }
-                categoryId = await saveNewCategory(newCategoryName);
-            }
-
-            const partData = {
-                name: name,
-                cost: cost,
-                category: categoryId,
-                part_number: partNumber,
-                brand: brand,
-                timestamp: serverTimestamp(),
-                user_id: userId
-            };
-
-            try {
-                const inventoryRef = collection(db, `/artifacts/${appId}/users/${userId}/hvac_inventory`);
-                // Sanitize docId to ensure no invalid characters
-                const docId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now(); 
-                await setDoc(doc(inventoryRef, docId), partData);
-
-                // Clear fields
-                document.getElementById('part-name').value = '';
-                document.getElementById('part-cost').value = '';
-                document.getElementById('part-number').value = '';
-                document.getElementById('part-brand').value = '';
-                document.getElementById('part-category-select').value = '';
-                document.getElementById('new-category-input').value = '';
-                document.getElementById('new-category-input').classList.add('hidden');
-                
-                showMessage(`Item "${name}" saved successfully!`, 'bg-green-100 text-green-700');
-
-            } catch (e) {
-                console.error("Error saving part: ", e);
-                showMessage(`Error saving part: ${e.message}`, 'bg-red-100 text-red-700');
-            }
-        };
-
-        window.deleteInventoryPart = async (id) => {
-            if (!userId) return;
-            
-            try {
-                const partRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_inventory/${id}`);
-                await deleteDoc(partRef);
-                showMessage("Item deleted successfully.", 'bg-blue-100 text-blue-700');
-            } catch (e) {
-                console.error("Error deleting part: ", e);
-                showMessage(`Error deleting item: ${e.message}`, 'bg-red-100 text-red-700');
-            }
-        };
-
-        // --- Job Line Item Persistence ---
-
-        // Helper to save the current job state to Firestore
-        const saveCurrentJob = async () => {
-            if (!userId || window.lineItems.length === 0) return;
-
-            // Sort line items by unit before saving to ensure consistent loading order
-            const sortedItems = [...window.lineItems].sort((a, b) => 
-                (a.unit || DEFAULT_UNIT).localeCompare(b.unit || DEFAULT_UNIT)
-            );
-
-            const jobData = {
-                items: JSON.stringify(sortedItems), // Store the whole array
-                timestamp: serverTimestamp(),
-                user_id: userId
-            };
-
-            try {
-                // Use a fixed document ID for the current job state
-                const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/current_job`);
-                await setDoc(jobRef, jobData);
-            } catch (e) {
-                console.error("Error saving current job state:", e);
-            }
-        };
-
-        // Helper to load the current job state from Firestore
-        const loadCurrentJob = async () => {
-            if (!userId) {
-                window.lineItems = [];
-                renderLineItems();
-                return;
-            }
-
-            try {
-                const jobRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_jobs/current_job`);
-                const docSnap = await getDoc(jobRef);
-
-                if (docSnap.exists() && docSnap.data().items) {
-                    const savedItems = JSON.parse(docSnap.data().items);
-                    
-                    // Ensure all loaded items have a unit property for grouping/editing
-                    window.lineItems = savedItems.map(item => ({
-                        ...item,
-                        unit: item.unit || DEFAULT_UNIT
-                    }));
-
-                    // Find the highest ID and continue counting from there
-                    itemIdCounter = window.lineItems.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-                    showMessage("Loaded previous job items.", 'bg-blue-100 text-blue-700');
+                if (user) {
+                    userId = user.uid;
+                    handleLoginUI(user);
+                    loadInventory(); // Load parts from Cloud
                 } else {
-                    // Initialize with the default item if no saved job exists
-                    window.lineItems = [{
-                        id: itemIdCounter++,
-                        description: 'Standard Service Call Fee',
-                        cost: 80.00,
-                        quantity: 1,
-                        unit: DEFAULT_UNIT // NEW: Default unit assigned
-                    }];
-                    showMessage("Starting new job.", 'bg-blue-100 text-blue-700');
+                    userId = null;
+                    handleLogoutUI();
                 }
-            } catch (e) {
-                console.error("Error loading current job state:", e);
-                showMessage("Error loading job from database, starting fresh.", 'bg-red-100 text-red-700');
-                window.lineItems = []; 
-            }
+            });
+        } catch (e) {
+            console.error("Firebase Error", e);
+            alert("Database connection failed.");
+        }
 
-            renderLineItems();
-        };
+        // --- 5. CORE FUNCTIONS ---
 
-        // --- Calculator Core Logic ---
-
-        // Function to select an inventory part and add it to line items
-        window.selectPartForJob = (partId) => {
-            const selector = document.getElementById('inventory-selector');
-            selector.value = ''; // Reset selector after selection
-
-            const part = window.inventory.find(p => p.id === partId);
-            const currentUnit = document.getElementById('current-unit-input').value.trim() || DEFAULT_UNIT;
-
-            if (part) {
-                window.lineItems.push({
-                    id: itemIdCounter++,
-                    description: part.name,
-                    cost: part.cost,
-                    quantity: 1,
-                    unit: currentUnit // NEW: Assign current unit
+        function initApp() {
+            // Setup Tabs
+            renderServiceChecklists('residential');
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+                    e.target.classList.add('tab-active');
+                    renderServiceChecklists(e.target.dataset.tab);
                 });
-                renderLineItems();
-                showMessage(`Added item "${part.name}" to the estimate.`, 'bg-blue-100 text-blue-700');
-            }
-        };
+            });
 
-        // Function to render the line items in the table
-        // This function now handles grouping by unit.
-        window.renderLineItems = window.debounce(() => {
-            const body = document.getElementById('line-items-body');
-            body.innerHTML = ''; 
-            let currentUnit = null;
+            // Unit Management
+            if(units.length === 0) addUnit(); // Start with 1 unit
 
-            // 1. Sort items by unit name for grouping
-            const sortedItems = [...window.lineItems].sort((a, b) => 
-                (a.unit || DEFAULT_UNIT).localeCompare(b.unit || DEFAULT_UNIT)
-            );
+            // Event Listeners
+            document.getElementById('addUnitBtn').addEventListener('click', addUnit);
+            document.getElementById('removeUnitBtn').addEventListener('click', removeActiveUnit);
+            document.getElementById('addCustomLineItemBtn').addEventListener('click', addCustomItemFromInput);
+            document.getElementById('addInventoryItemBtn').addEventListener('click', addInventoryItem);
+            document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
             
-            // 2. Render grouped rows
-            sortedItems.forEach((item) => {
-                const totalItemCost = item.cost * item.quantity;
+            // Calc Triggers
+            ['laborHours', 'laborRate', 'tripCharge', 'marginPercent'].forEach(id => {
+                document.getElementById(id).addEventListener('input', calculateTotals);
+            });
 
-                // Check for new unit group and insert header row
-                if (item.unit !== currentUnit) {
-                    currentUnit = item.unit;
-                    const headerRow = document.createElement('tr');
-                    headerRow.className = 'unit-header';
-                    headerRow.innerHTML = `
-                        <td colspan="6" class="p-3">
-                            <span class="text-sm font-extrabold">${currentUnit}</span>
-                        </td>
-                    `;
-                    body.appendChild(headerRow);
-                }
+            // Auth Triggers
+            document.getElementById('google-sign-in').addEventListener('click', () => signInWithPopup(auth, new GoogleAuthProvider()));
+            document.getElementById('google-sign-out').addEventListener('click', () => signOut(auth));
+            document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
+            document.getElementById('generatePdfBtn').addEventListener('click', generatePDF);
+        }
 
-                // Render the line item row
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                row.innerHTML = `
-                    <td class="p-3 whitespace-nowrap">
-                        <input type="text" value="${item.unit || DEFAULT_UNIT}" 
-                                oninput="updateLineItem(${item.id}, 'unit', this.value.trim() || DEFAULT_UNIT)"
-                                placeholder="Unit/System"
-                                class="w-full border-none focus:ring-0 text-xs font-medium text-blue-600 bg-transparent"/>
-                    </td>
-                    <td class="p-3 whitespace-nowrap">
-                        <input type="text" value="${item.description}" 
-                                oninput="updateLineItem(${item.id}, 'description', this.value)"
-                                placeholder="Item Description"
-                                class="w-full border-none focus:ring-0 text-sm font-medium text-gray-900 bg-transparent"/>
-                    </td>
-                    <td class="p-3 whitespace-nowrap text-right">
-                        <input type="number" value="${item.cost}" min="0" step="0.01" 
-                                oninput="updateLineItem(${item.id}, 'cost', parseFloat(this.value) || 0)"
-                                class="w-24 text-right border-none focus:ring-0 text-sm bg-transparent"/>
-                    </td>
-                    <td class="p-3 whitespace-nowrap text-right">
-                        <input type="number" value="${item.quantity}" min="1" step="1" 
-                                oninput="updateLineItem(${item.id}, 'quantity', parseInt(this.value) || 1)"
-                                class="w-16 text-right border-none focus:ring-0 text-sm bg-transparent"/>
-                    </td>
-                    <td class="p-3 whitespace-nowrap text-right font-medium text-gray-900">
-                        ${formatCurrency(totalItemCost)}
-                    </td>
-                    <td class="p-3 whitespace-nowrap text-right">
-                        <button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700 transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
-                    </td>
+        // --- UNIT LOGIC ---
+        function createUnit(id) {
+            return { id, name: `Unit ${units.length + 1}`, brand: '', model: '', serial: '', notes: '', photos: [], selectedServices: new Set() };
+        }
+
+        function addUnit() {
+            const id = Date.now();
+            units.push(createUnit(id));
+            setActiveUnit(id);
+        }
+
+        function removeActiveUnit() {
+            if(units.length <= 1) return alert("Keep at least one unit.");
+            units = units.filter(u => u.id !== activeUnitId);
+            setActiveUnit(units[0].id);
+        }
+
+        function setActiveUnit(id) {
+            activeUnitId = id;
+            renderUnitTabs();
+            renderUnitDetails();
+            updateCheckboxes();
+        }
+
+        function renderUnitTabs() {
+            const container = document.getElementById('unitTabs');
+            container.innerHTML = '';
+            units.forEach(u => {
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 text-sm font-medium rounded-t-lg border-t border-l border-r ${u.id === activeUnitId ? 'unit-tab-active' : 'bg-gray-100 hover:bg-gray-200'}`;
+                btn.textContent = u.name;
+                btn.onclick = () => setActiveUnit(u.id);
+                container.appendChild(btn);
+            });
+        }
+
+        function renderUnitDetails() {
+            const u = units.find(unit => unit.id === activeUnitId);
+            const container = document.getElementById('unitDetailsContainer');
+            if(!u) return;
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <input type="text" value="${u.name}" class="input-field" onchange="updateUnit('${u.id}', 'name', this.value)" placeholder="Unit Name (e.g. RTU-1)">
+                    <input type="text" value="${u.brand}" class="input-field" onchange="updateUnit('${u.id}', 'brand', this.value)" placeholder="Brand">
+                    <input type="text" value="${u.model}" class="input-field" onchange="updateUnit('${u.id}', 'model', this.value)" placeholder="Model #">
+                    <input type="text" value="${u.serial}" class="input-field" onchange="updateUnit('${u.id}', 'serial', this.value)" placeholder="Serial #">
+                </div>
+                <textarea class="input-field h-20 mb-4" placeholder="Diagnosis / Notes" onchange="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
+                
+                <div class="flex flex-wrap gap-2 mb-2" id="photoGallery-${u.id}">
+                    ${u.photos.map((src, idx) => `<div class="relative w-16 h-16"><img src="${src}" class="w-full h-full object-cover rounded border"><button onclick="removePhoto('${u.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center">&times;</button></div>`).join('')}
+                </div>
+                <button onclick="document.getElementById('photoInput').click()" class="text-sm text-blue-600 hover:underline"><i class="fa fa-camera"></i> Add Photo</button>
+            `;
+        }
+
+        window.updateUnit = (id, field, val) => {
+            const u = units.find(unit => unit.id === id);
+            if(u) { u[field] = val; if(field === 'name') renderUnitTabs(); }
+        }
+
+        // --- CHECKLIST LOGIC ---
+        function renderServiceChecklists(type) {
+            const container = document.getElementById('serviceListContainer');
+            container.innerHTML = '';
+            const list = serviceCategories[type];
+            list.forEach(key => {
+                const item = quickJobs[key];
+                const div = document.createElement('div');
+                div.className = 'flex items-center p-2 hover:bg-gray-50 rounded';
+                div.innerHTML = `
+                    <input type="checkbox" id="cb-${key}" data-key="${key}" class="service-cb w-4 h-4 text-blue-600 rounded">
+                    <label for="cb-${key}" class="ml-2 text-sm text-gray-700 w-full cursor-pointer select-none">${item.title}</label>
                 `;
-                body.appendChild(row);
+                container.appendChild(div);
             });
-
-            recalculateTotals();
-            saveCurrentJob(); // Save the state after rendering is complete
-        }, 50);
-
-        // Function to update item properties
-        window.updateLineItem = (id, key, value) => {
-            const item = window.lineItems.find(i => i.id === id);
-            if (item) {
-                // Ensure quantity is at least 1 and cost is at least 0
-                if (key === 'quantity') item[key] = Math.max(1, value);
-                else if (key === 'cost') item[key] = Math.max(0, value);
-                else item[key] = value;
-            }
-            // Re-render immediately to update totals and trigger save
-            renderLineItems(); 
-        };
-
-        // Function to add a new ad-hoc line item
-        window.addLineItem = () => {
-            const currentUnit = document.getElementById('current-unit-input').value.trim() || DEFAULT_UNIT;
-
-            window.lineItems.push({
-                id: itemIdCounter++,
-                description: 'Ad-hoc Item/Service',
-                cost: 0.00,
-                quantity: 1,
-                unit: currentUnit // NEW: Assign current unit
-            });
-            renderLineItems();
-        };
-
-        // Function to remove a line item
-        window.removeLineItem = (id) => {
-            window.lineItems = window.lineItems.filter(item => item.id !== id);
-            renderLineItems();
-        };
-        
-        // NEW FUNCTION: Save margin to localStorage and recalculate
-        window.saveMarginAndRecalculate = (value) => {
-            const margin = parseFloat(value) || 0;
-            // Save the current margin value to localStorage
-            localStorage.setItem('hvac_profit_margin', margin);
-            recalculateTotals();
-        };
-
-        // Function to recalculate all totals
-        window.recalculateTotals = () => {
-            let totalCost = 0;
-            window.lineItems.forEach(item => {
-                totalCost += (item.cost || 0) * (item.quantity || 1);
-            });
-
-            const marginPercent = parseFloat(document.getElementById('profit-margin').value) || 0;
-            const marginMultiplier = marginPercent / 100;
-            const marginAmount = totalCost * marginMultiplier;
-            const grandTotal = totalCost + marginAmount;
-
-            document.getElementById('subtotal').textContent = formatCurrency(totalCost);
-            document.getElementById('margin-amount').textContent = formatCurrency(marginAmount);
-            document.getElementById('grand-total').textContent = formatCurrency(grandTotal);
-        };
-
-        
-        // FUNCTION TO LOAD MARGIN ON STARTUP
-        const loadInitialMargin = () => {
-            // Load margin from localStorage, default to 25 if not found
-            const savedMargin = localStorage.getItem('hvac_profit_margin');
-            const marginInput = document.getElementById('profit-margin');
             
-            if (savedMargin !== null) {
-                const marginValue = parseFloat(savedMargin);
-                if (!isNaN(marginValue)) {
-                    marginInput.value = marginValue;
-                }
+            // Re-attach listeners
+            document.querySelectorAll('.service-cb').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const u = units.find(unit => unit.id === activeUnitId);
+                    if(!u) return;
+                    if(e.target.checked) u.selectedServices.add(e.target.dataset.key);
+                    else u.selectedServices.delete(e.target.dataset.key);
+                    calculateTotals();
+                });
+            });
+            updateCheckboxes();
+        }
+
+        function updateCheckboxes() {
+            const u = units.find(unit => unit.id === activeUnitId);
+            document.querySelectorAll('.service-cb').forEach(cb => {
+                cb.checked = u && u.selectedServices.has(cb.dataset.key);
+            });
+        }
+
+        // --- INVENTORY & CUSTOM ITEMS ---
+        function loadInventory() {
+            if(!userId) return;
+            const ref = collection(db, `artifacts/${FIREBASE_CONFIG.appId}/users/${userId}/hvac_inventory`);
+            onSnapshot(ref, (snap) => {
+                inventory = [];
+                const select = document.getElementById('inventory-selector');
+                select.innerHTML = '<option value="" disabled selected>-- Quick Add from Inventory --</option>';
+                
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    inventory.push({ id: doc.id, ...data });
+                    const opt = document.createElement('option');
+                    opt.value = doc.id;
+                    opt.textContent = `${data.name} ($${data.cost})`;
+                    select.appendChild(opt);
+                });
+            });
+        }
+
+        function addInventoryItem() {
+            const id = document.getElementById('inventory-selector').value;
+            const item = inventory.find(i => i.id === id);
+            if(item) addCustomLineItem(item.name, item.cost, 1);
+        }
+
+        function addCustomItemFromInput() {
+            const name = document.getElementById('customPartName').value;
+            const cost = parseFloat(document.getElementById('customPartCost').value) || 0;
+            const qty = parseFloat(document.getElementById('customPartQty').value) || 1;
+            if(name) {
+                addCustomLineItem(name, cost, qty);
+                document.getElementById('customPartName').value = '';
+                document.getElementById('customPartCost').value = '';
             }
-        };
+        }
 
-        // --- Estimate Save and Output Functions ---
+        function addCustomLineItem(description, cost, qty) {
+            customLineItems.push({ id: Date.now(), description, cost, qty, unitId: activeUnitId });
+            calculateTotals();
+        }
 
-        window.saveEstimate = async () => {
-            if (!userId) {
-                showMessage("Please sign in to save estimates to your account.", 'bg-red-100 text-red-700');
-                return;
-            }
+        window.removeLineItem = (id) => {
+            customLineItems = customLineItems.filter(i => i.id !== id);
+            calculateTotals();
+        }
 
-            const customerName = document.getElementById('customer-name').value.trim();
-            if (!customerName) {
-                showMessage("Please enter a Customer Name before saving.", 'bg-yellow-100 text-yellow-700');
-                return;
-            }
+        // --- CALCULATIONS & SUMMARY ---
+        function calculateTotals() {
+            let partsTotal = 0;
+            let laborHrsTotal = 0;
+            const tbody = document.getElementById('combinedLineItemsBody');
+            tbody.innerHTML = '';
 
-            // Ensure items are sorted by unit for consistent saving
-            const sortedItems = [...window.lineItems].sort((a, b) => 
-                (a.unit || DEFAULT_UNIT).localeCompare(b.unit || DEFAULT_UNIT)
-            );
+            // 1. Process Checklists from All Units
+            units.forEach(u => {
+                u.selectedServices.forEach(key => {
+                    const job = quickJobs[key];
+                    partsTotal += job.cost;
+                    laborHrsTotal += job.labor;
+                    
+                    // Add to table
+                    tbody.innerHTML += `
+                        <tr class="bg-blue-50/50 border-b">
+                            <td class="px-4 py-2 font-medium text-xs">${u.name}: ${job.title}</td>
+                            <td class="px-4 py-2 text-right text-xs">$${job.cost.toFixed(2)}</td>
+                            <td class="px-4 py-2 text-right text-xs">1</td>
+                            <td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td>
+                        </tr>
+                    `;
+                });
+            });
 
-            const estimateData = {
+            // 2. Process Custom Items
+            customLineItems.forEach(item => {
+                partsTotal += (item.cost * item.quantity);
+                const uName = units.find(u => u.id === item.unitId)?.name || 'General';
+                tbody.innerHTML += `
+                    <tr class="border-b">
+                        <td class="px-4 py-2 text-sm">${uName}: ${item.description}</td>
+                        <td class="px-4 py-2 text-right text-sm">$${item.cost.toFixed(2)}</td>
+                        <td class="px-4 py-2 text-right text-sm">${item.quantity}</td>
+                        <td class="px-4 py-2 text-center">
+                            <button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700">&times;</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // 3. Labor & Misc
+            const manualLabor = parseFloat(document.getElementById('laborHours').value);
+            const finalLaborHrs = isNaN(manualLabor) ? laborHrsTotal : manualLabor;
+            if(isNaN(manualLabor)) document.getElementById('laborHours').placeholder = laborHrsTotal.toFixed(1);
+
+            const rate = parseFloat(document.getElementById('laborRate').value) || 0;
+            const trip = parseFloat(document.getElementById('tripCharge').value) || 0;
+            
+            const laborCost = finalLaborHrs * rate;
+            const subtotal = partsTotal + laborCost + trip;
+
+            // 4. Margin & Price
+            const margin = parseFloat(document.getElementById('marginPercent').value) || 0;
+            const price = margin > 0 && margin < 100 ? subtotal / (1 - (margin/100)) : subtotal;
+
+            // Update UI
+            document.getElementById('totalParts').textContent = `$${partsTotal.toFixed(2)}`;
+            document.getElementById('totalLabor').textContent = `$${laborCost.toFixed(2)}`;
+            document.getElementById('subtotalCost').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('grandTotal').textContent = `$${price.toFixed(2)}`;
+        }
+
+        // --- AUTH UI HANDLERS ---
+        function handleLoginUI(user) {
+            document.getElementById('google-sign-in').classList.add('hidden');
+            document.getElementById('user-panel').classList.remove('hidden');
+            document.getElementById('user-email').textContent = user.email;
+            document.getElementById('saveCloudBtn').classList.remove('hidden');
+            document.getElementById('connection-status').className = "text-xs text-green-600 font-semibold";
+            document.getElementById('connection-status').textContent = "● Database Connected";
+        }
+
+        function handleLogoutUI() {
+            document.getElementById('google-sign-in').classList.remove('hidden');
+            document.getElementById('user-panel').classList.add('hidden');
+            document.getElementById('saveCloudBtn').classList.add('hidden');
+            document.getElementById('connection-status').className = "text-xs text-gray-400";
+            document.getElementById('connection-status').textContent = "○ Local Mode Only";
+        }
+
+        // --- SAVING & PDF ---
+        async function saveToCloud() {
+            if(!userId) return alert("Sign in first.");
+            const name = document.getElementById('customerName').value;
+            if(!name) return alert("Customer Name Required");
+
+            const data = {
                 customer: {
-                    name: customerName,
-                    address: document.getElementById('customer-address').value.trim(),
-                    phone: document.getElementById('customer-phone').value.trim(),
-                    email: document.getElementById('customer-email').value.trim(),
+                    name,
+                    contact: document.getElementById('customerContact').value,
+                    address: document.getElementById('customerAddress').value
                 },
-                // Serialize lineItems to prevent Firestore nested array issues
-                items: JSON.stringify(sortedItems.map(item => ({
-                    description: item.description,
-                    cost: item.cost,
-                    quantity: item.quantity,
-                    unit: item.unit || DEFAULT_UNIT
-                }))), 
-                margin_percent: parseFloat(document.getElementById('profit-margin').value) || 0,
-                total_cost: parseFloat(document.getElementById('subtotal').textContent.replace(/[^0-9.-]+/g, "")),
-                customer_price: parseFloat(document.getElementById('grand-total').textContent.replace(/[^0-9.-]+/g, "")),
-                timestamp: serverTimestamp(),
-                user_id: userId
+                units: units.map(u => ({...u, selectedServices: Array.from(u.selectedServices)})),
+                customLineItems,
+                financials: {
+                    laborRate: document.getElementById('laborRate').value,
+                    trip: document.getElementById('tripCharge').value,
+                    margin: document.getElementById('marginPercent').value,
+                    total: document.getElementById('grandTotal').textContent
+                },
+                timestamp: serverTimestamp()
             };
 
             try {
-                const docId = `estimate_${Date.now()}`;
-                const userRef = doc(db, `/artifacts/${appId}/users/${userId}/hvac_estimates/${docId}`);
-
-                await setDoc(userRef, estimateData);
-                showMessage(`Estimate for ${customerName} saved successfully! ID: ${docId}`, 'bg-blue-100 text-blue-700');
-
-            } catch (e) {
-                console.error("Error saving document: ", e);
-                showMessage(`Error saving estimate: ${e.message}`, 'bg-red-100 text-red-700');
+                await setDoc(doc(collection(db, `artifacts/${FIREBASE_CONFIG.appId}/users/${userId}/hvac_estimates`)), data);
+                showMessage("Estimate Saved to Cloud!", "bg-green-100 text-green-700");
+            } catch(e) {
+                console.error(e);
+                alert("Error saving.");
             }
-        };
+        }
 
-        window.generateEstimateText = () => {
-            let emailBody = "HVAC Service Job Estimate\n\n";
-            emailBody += "--- Customer Details ---\n";
-            emailBody += `Name: ${document.getElementById('customer-name').value.trim() || 'N/A'}\n`;
-            emailBody += `Address: ${document.getElementById('customer-address').value.trim() || 'N/A'}\n`;
-            emailBody += `Phone: ${document.getElementById('customer-phone').value.trim() || 'N/A'}\n`;
-            emailBody += `Email: ${document.getElementById('customer-email').value.trim() || 'N/A'}\n\n`;
+        function handlePhotoUpload(e) {
+            const u = units.find(unit => unit.id === activeUnitId);
+            if(!u || !e.target.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                u.photos.push(ev.target.result);
+                renderUnitDetails();
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        }
 
-            emailBody += "--- Itemized Services & Parts ---\n";
-            
-            // Group items for output
-            const itemsByUnit = window.lineItems.reduce((acc, item) => {
-                const unit = item.unit || DEFAULT_UNIT;
-                if (!acc[unit]) acc[unit] = [];
-                acc[unit].push(item);
-                return acc;
-            }, {});
+        window.removePhoto = (uId, idx) => {
+            const u = units.find(unit => unit.id == uId);
+            if(u) { u.photos.splice(idx, 1); renderUnitDetails(); }
+        }
 
-            // Sort unit keys alphabetically
-            Object.keys(itemsByUnit).sort().forEach(unit => {
-                emailBody += `\n**Unit/System: ${unit}**\n`;
-                itemsByUnit[unit].forEach(item => {
-                    emailBody += `- ${item.quantity}x ${item.description}\n`;
+        function showMessage(msg, classes) {
+            const box = document.getElementById('message-box');
+            box.textContent = msg;
+            box.className = `p-4 rounded-lg text-sm mb-6 transition-opacity duration-300 font-semibold text-center ${classes}`;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 3000);
+        }
+
+        async function generatePDF() {
+            const doc = new jsPDF();
+            const margin = 15;
+            let y = 20;
+
+            // Header
+            doc.setFontSize(22).setTextColor(40).text("HVAC Service Report", margin, y);
+            y += 10;
+            doc.setFontSize(10).setTextColor(100).text("Mechanical Temp Service", margin, y);
+            y += 15;
+
+            // Customer
+            doc.setDrawColor(200);
+            doc.line(margin, y, 195, y);
+            y += 10;
+            doc.setFontSize(12).setTextColor(0).text("Customer:", margin, y);
+            doc.setFontSize(10);
+            y += 6;
+            doc.text(`Name: ${document.getElementById('customerName').value}`, margin, y);
+            y += 5;
+            doc.text(`Address: ${document.getElementById('customerAddress').value}`, margin, y);
+            y += 10;
+
+            // Units & Work
+            units.forEach(u => {
+                if(y > 250) { doc.addPage(); y = 20; }
+                doc.setFontSize(14).setFont(undefined, 'bold').text(`${u.name} (${u.brand || 'N/A'})`, margin, y);
+                y += 7;
+                doc.setFontSize(10).setFont(undefined, 'normal');
+                if(u.notes) {
+                    const splitNotes = doc.splitTextToSize(`Notes: ${u.notes}`, 170);
+                    doc.text(splitNotes, margin, y);
+                    y += (splitNotes.length * 5) + 5;
+                }
+                
+                // Checklist Items
+                u.selectedServices.forEach(key => {
+                     doc.text(`[x] ${quickJobs[key].title}`, margin + 5, y);
+                     y += 5;
                 });
+                
+                // Custom Items for this unit
+                customLineItems.filter(i => i.unitId === u.id).forEach(i => {
+                    doc.text(`- ${i.description} (Qty: ${i.quantity})`, margin + 5, y);
+                    y += 5;
+                });
+                y += 10;
             });
+
+            // Pricing
+            const option = document.getElementById('pdfOption').value;
+            y = 250; // Bottom of page
+            doc.line(margin, y, 195, y);
+            y += 10;
+            doc.setFontSize(14).setFont(undefined, 'bold');
             
-            emailBody += "\n*Note: The customer price includes all services, parts, and the applied profit margin.*\n\n";
-
-            const grandTotal = document.getElementById('grand-total').textContent;
-            emailBody += "--- Total Charge ---\n";
-            emailBody += `\n**Customer Final Price: ${grandTotal}**\n\n`;
-            emailBody += "Thank you for choosing our service!\n\n";
-
-            try {
-                // Use document.execCommand('copy') fallback for clipboard operations in iframe environments
-                const textarea = document.createElement('textarea');
-                textarea.value = emailBody;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showMessage("Estimate text copied to clipboard!", 'bg-blue-100 text-blue-700');
-            } catch (err) {
-                console.error("Clipboard copy failed:", err);
-                showMessage("Could not copy estimate text. Please copy manually from console.", 'bg-red-100 text-red-700');
+            if(option === 'flatRate') {
+                doc.text(`Total Investment: ${document.getElementById('grandTotal').textContent}`, margin, y);
+            } else {
+                doc.setFontSize(10);
+                doc.text(`Parts: ${document.getElementById('totalParts').textContent}`, margin, y); y+=5;
+                doc.text(`Labor: ${document.getElementById('totalLabor').textContent}`, margin, y); y+=5;
+                doc.setFontSize(14);
+                doc.text(`Total: ${document.getElementById('grandTotal').textContent}`, margin, y+5);
             }
-        };
 
+            doc.save('Service_Report.pdf');
+        }
 
-        // Initialize on load
-        window.addEventListener('load', () => {
-            initializeFirebase();
-            loadInitialMargin(); // Load margin before initializing job data
-            // Initial renderLineItems is called within loadCurrentJob or handleSignOut
-        });
+        // Init
+        initApp();
 
-        // Expose functions globally for use in HTML attributes
-        window.addLineItem = addLineItem;
-        window.removeLineItem = removeLineItem;
-        window.updateLineItem = updateLineItem;
-        window.recalculateTotals = recalculateTotals;
-        window.saveEstimate = saveEstimate;
-        window.generateEstimateText = generateEstimateText;
-        window.saveInventoryPart = saveInventoryPart;
-        window.deleteInventoryPart = deleteInventoryPart;
-        window.selectPartForJob = selectPartForJob;
-        window.checkNewCategory = checkNewCategory; 
-        window.signInWithGoogle = signInWithGoogle; 
-        window.signOutUser = signOutUser; 
-        window.saveMarginAndRecalculate = saveMarginAndRecalculate; 
-        window.saveCurrentUnit = saveCurrentUnit; // Exposed for HTML input
     </script>
 </body>
 </html>
