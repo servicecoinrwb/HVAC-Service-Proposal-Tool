@@ -490,18 +490,18 @@
 
             container.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <input type="text" value="${u.name}" class="input-field" onchange="updateUnit('${u.id}', 'name', this.value)" placeholder="Unit Name (e.g. RTU-1)">
+                    <input type="text" value="${u.name}" class="input-field" oninput="updateUnit('${u.id}', 'name', this.value)" placeholder="Unit Name (e.g. RTU-1)">
                     <div>
                         <select class="input-field" id="brandSelect-${u.id}" onchange="handleBrandChange('${u.id}', this.value)">${brandSelectOptions}</select>
-                        <input type="text" id="brandCustom-${u.id}" value="${isCustomBrand ? u.brand : ''}" class="input-field mt-2 ${showCustomInput ? '' : 'hidden'}" placeholder="Enter Custom Brand" onchange="updateUnit('${u.id}', 'brand', this.value)">
+                        <input type="text" id="brandCustom-${u.id}" value="${isCustomBrand ? u.brand : ''}" class="input-field mt-2 ${showCustomInput ? '' : 'hidden'}" placeholder="Enter Custom Brand" oninput="updateUnit('${u.id}', 'brand', this.value)">
                     </div>
-                    <input type="text" value="${u.model}" class="input-field" onchange="updateUnit('${u.id}', 'model', this.value)" placeholder="Model #">
-                    <input type="text" value="${u.serial}" class="input-field" onchange="updateUnit('${u.id}', 'serial', this.value)" placeholder="Serial #">
+                    <input type="text" value="${u.model}" class="input-field" oninput="updateUnit('${u.id}', 'model', this.value)" placeholder="Model #">
+                    <input type="text" value="${u.serial}" class="input-field" oninput="updateUnit('${u.id}', 'serial', this.value)" placeholder="Serial #">
                 </div>
                 
                 <div class="mb-4">
                     <label class="block text-sm font-bold text-gray-700 mb-1">Diagnosis / Service Notes</label>
-                    <textarea class="input-field w-full min-h-[200px] resize-y text-base p-4 border-gray-400 bg-yellow-50 focus:bg-white" placeholder="Type detailed diagnosis here. This box is now full width and expandable." onchange="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
+                    <textarea class="input-field w-full min-h-[200px] resize-y text-base p-4 border-gray-400 bg-yellow-50 focus:bg-white" placeholder="Type detailed diagnosis here. This box is now full width and expandable." oninput="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
                 </div>
                 
                 <div class="flex flex-wrap gap-2 mb-2" id="photoGallery-${u.id}">
