@@ -96,7 +96,6 @@
                         <button id="google-sign-out" class="text-sm text-red-500 hover:text-red-700 underline">Sign Out</button>
                     </div>
                 </div>
-                <button onclick="clearSession()" class="text-xs text-red-400 hover:text-red-600 underline">Clear All Data (New Job)</button>
             </div>
         </header>
 
@@ -170,10 +169,7 @@
             <div class="lg:col-span-2 space-y-6">
                 
                 <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold mb-2 text-gray-800 flex justify-between items-center">
-                        <span>4. Parts & Services Breakdown</span>
-                        <span id="activeUnitIndicator" class="text-xs font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded">Target: None</span>
-                    </h2>
+                    <h2 class="text-xl font-bold mb-2 text-gray-800">4. Parts & Services Breakdown</h2>
                     <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4">
                         <div class="flex flex-col sm:flex-row gap-2 mb-2">
                             <select id="inventory-selector" class="input-field flex-grow">
@@ -305,6 +301,7 @@
         let customerDB = {}; 
         let quickJobs = {}; 
         
+        // Track manual labor override
         let manualLaborSet = false;
 
         // Init
@@ -323,8 +320,6 @@
             loadServiceData(); 
             renderServiceChecklists('residential');
             loadCachedCustomers();
-            loadSession(); // LOAD SAVED STATE
-
             if(units.length === 0) addUnit(); 
 
             // Events
@@ -336,100 +331,29 @@
                 });
             });
 
-            document.getElementById('addUnitBtn').addEventListener('click', () => { addUnit(); saveSession(); });
-            document.getElementById('removeUnitBtn').addEventListener('click', () => { removeActiveUnit(); saveSession(); });
+            document.getElementById('addUnitBtn').addEventListener('click', addUnit);
+            document.getElementById('removeUnitBtn').addEventListener('click', removeActiveUnit);
             document.getElementById('addCustomLineItemBtn').addEventListener('click', addCustomItemFromInput);
             document.getElementById('addInventoryItemBtn').addEventListener('click', addInventoryItem);
             document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
             document.getElementById('csvInput').addEventListener('change', handleCsvUpload);
+            document.getElementById('customerName').addEventListener('input', autofillCustomer);
             
-            // Auto Save on Inputs
-            ['customerName', 'customerContact', 'customerAddress', 'workOrderNo'].forEach(id => {
-                document.getElementById(id).addEventListener('input', (e) => {
-                    if(id === 'customerName') autofillCustomer(e);
-                    saveSession();
-                });
-            });
-
-            ['laborHours', 'laborRate', 'tripCharge', 'marginPercent'].forEach(id => {
-                document.getElementById(id).addEventListener('input', (e) => {
-                    if(id === 'laborHours') manualLaborSet = true;
-                    calculateTotals();
-                    saveSession();
-                });
+            // Listeners for calc
+            document.getElementById('laborRate').addEventListener('input', calculateTotals);
+            document.getElementById('tripCharge').addEventListener('input', calculateTotals);
+            document.getElementById('marginPercent').addEventListener('input', calculateTotals);
+            
+            // Special handling for Labor Hours input to track manual override
+            document.getElementById('laborHours').addEventListener('input', (e) => {
+                manualLaborSet = true;
+                calculateTotals();
             });
 
             document.getElementById('google-sign-in').addEventListener('click', () => signInWithPopup(auth, new GoogleAuthProvider()));
             document.getElementById('google-sign-out').addEventListener('click', () => signOut(auth));
             document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
             document.getElementById('generatePdfBtn').addEventListener('click', generatePDF);
-        }
-
-        // --- SESSION PERSISTENCE (LOCAL STORAGE) ---
-        function saveSession() {
-            const session = {
-                customer: {
-                    name: document.getElementById('customerName').value,
-                    contact: document.getElementById('customerContact').value,
-                    address: document.getElementById('customerAddress').value,
-                    wo: document.getElementById('workOrderNo').value
-                },
-                financials: {
-                    laborHours: document.getElementById('laborHours').value,
-                    laborRate: document.getElementById('laborRate').value,
-                    trip: document.getElementById('tripCharge').value,
-                    margin: document.getElementById('marginPercent').value,
-                    manualLaborSet
-                },
-                units: units.map(u => ({...u, selectedServices: Array.from(u.selectedServices)})),
-                customLineItems,
-                activeUnitId
-            };
-            localStorage.setItem('hvac_pro_session', JSON.stringify(session));
-        }
-
-        function loadSession() {
-            const saved = localStorage.getItem('hvac_pro_session');
-            if(saved) {
-                try {
-                    const session = JSON.parse(saved);
-                    
-                    // Restore Customer
-                    document.getElementById('customerName').value = session.customer.name || '';
-                    document.getElementById('customerContact').value = session.customer.contact || '';
-                    document.getElementById('customerAddress').value = session.customer.address || '';
-                    document.getElementById('workOrderNo').value = session.customer.wo || '';
-                    
-                    // Restore Financials
-                    document.getElementById('laborHours').value = session.financials.laborHours || 0;
-                    document.getElementById('laborRate').value = session.financials.laborRate || 125;
-                    document.getElementById('tripCharge').value = session.financials.trip || 45;
-                    document.getElementById('marginPercent').value = session.financials.margin || 50;
-                    manualLaborSet = session.financials.manualLaborSet || false;
-
-                    // Restore Arrays
-                    if(session.units && session.units.length > 0) {
-                        units = session.units.map(u => ({...u, selectedServices: new Set(u.selectedServices)}));
-                    }
-                    customLineItems = session.customLineItems || [];
-                    
-                    // Restore Active Unit Logic
-                    if(session.activeUnitId) {
-                        setActiveUnit(session.activeUnitId);
-                    } else if (units.length > 0) {
-                        setActiveUnit(units[0].id);
-                    }
-                    
-                    calculateTotals(); // Re-run math
-                } catch(e) { console.error("Session Load Error", e); }
-            }
-        }
-
-        window.clearSession = () => {
-            if(confirm("Clear entire job form? This cannot be undone.")) {
-                localStorage.removeItem('hvac_pro_session');
-                location.reload();
-            }
         }
 
         // --- SERVICE DATA ---
@@ -451,7 +375,8 @@
             quickJobs = newJobs;
             localStorage.setItem('hvac_services_db', JSON.stringify(quickJobs));
             toggleServiceModal();
-            renderServiceChecklists(document.querySelector('.tab-btn.tab-active').dataset.tab);
+            const activeTab = document.querySelector('.tab-btn.tab-active');
+            renderServiceChecklists(activeTab ? activeTab.dataset.tab : 'residential');
             calculateTotals();
         }
         window.resetDefaultServices = () => {
@@ -548,29 +473,14 @@
                 document.getElementById('customerContact').value = data.contact;
                 if (data.type) document.querySelectorAll('.tab-btn').forEach(btn => { if (btn.dataset.tab === data.type) btn.click(); });
                 showMessage("Customer details autofilled!", "bg-blue-100 text-blue-700");
-                saveSession(); // Save after autofill
             }
         }
 
         // --- UNITS ---
         function createUnit(id) { return { id, name: `Unit ${units.length + 1}`, brand: '', model: '', serial: '', notes: '', photos: [], selectedServices: new Set() }; }
-        function addUnit() { const id = Date.now(); units.push(createUnit(id)); setActiveUnit(id); saveSession(); }
-        function removeActiveUnit() { if(units.length <= 1) return alert("Keep at least one unit."); units = units.filter(u => u.id !== activeUnitId); setActiveUnit(units[0].id); saveSession(); }
-        
-        function setActiveUnit(id) { 
-            activeUnitId = id; 
-            renderUnitTabs(); 
-            renderUnitDetails(); 
-            updateCheckboxes(); 
-            updateActiveUnitLabel();
-        }
-        
-        function updateActiveUnitLabel() {
-            const u = units.find(unit => unit.id === activeUnitId);
-            const label = document.getElementById('activeUnitIndicator');
-            label.textContent = u ? `Target: ${u.name}` : "Target: None";
-        }
-
+        function addUnit() { const id = Date.now(); units.push(createUnit(id)); setActiveUnit(id); }
+        function removeActiveUnit() { if(units.length <= 1) return alert("Keep at least one unit."); units = units.filter(u => u.id !== activeUnitId); setActiveUnit(units[0].id); }
+        function setActiveUnit(id) { activeUnitId = id; renderUnitTabs(); renderUnitDetails(); updateCheckboxes(); }
         function renderUnitTabs() {
             const container = document.getElementById('unitTabs'); container.innerHTML = '';
             units.forEach(u => {
@@ -601,12 +511,10 @@
                     <input type="text" value="${u.model}" class="input-field" oninput="updateUnit('${u.id}', 'model', this.value)" placeholder="Model #">
                     <input type="text" value="${u.serial}" class="input-field" oninput="updateUnit('${u.id}', 'serial', this.value)" placeholder="Serial #">
                 </div>
-                
                 <div class="mb-4">
                     <label class="block text-sm font-bold text-gray-700 mb-1">Diagnosis / Service Notes</label>
-                    <textarea class="input-field w-full min-h-[200px] resize-y text-base p-4 border-gray-400 bg-yellow-50 focus:bg-white" placeholder="Type detailed diagnosis here. This box is now full width and expandable." oninput="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
+                    <textarea class="input-field w-full min-h-[200px] resize-y text-base p-4 border-gray-400 bg-yellow-50 focus:bg-white" placeholder="Type detailed diagnosis here..." oninput="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
                 </div>
-                
                 <div class="flex flex-wrap gap-2 mb-2" id="photoGallery-${u.id}">
                     ${u.photos.map((src, idx) => `<div class="relative w-20 h-20"><img src="${src}" class="w-full h-full object-cover rounded border shadow"><button onclick="removePhoto('${u.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hover:bg-red-700">&times;</button></div>`).join('')}
                 </div>
@@ -618,14 +526,7 @@
             if(val === 'Other') { customInput.classList.remove('hidden'); customInput.focus(); updateUnit(id, 'brand', ''); } 
             else { customInput.classList.add('hidden'); updateUnit(id, 'brand', val); }
         };
-        window.updateUnit = (id, field, val) => { 
-            const u = units.find(unit => unit.id == id); 
-            if(u) { 
-                u[field] = val; 
-                if(field === 'name') renderUnitTabs(); 
-                saveSession();
-            } 
-        }
+        window.updateUnit = (id, field, val) => { const u = units.find(unit => unit.id === id); if(u) { u[field] = val; if(field === 'name') renderUnitTabs(); } }
 
         // --- CHECKLIST UI ---
         function renderServiceChecklists(type) {
@@ -642,7 +543,7 @@
             document.querySelectorAll('.service-cb').forEach(cb => {
                 cb.addEventListener('change', (e) => {
                     const u = units.find(unit => unit.id === activeUnitId);
-                    if(u) { e.target.checked ? u.selectedServices.add(e.target.dataset.key) : u.selectedServices.delete(e.target.dataset.key); calculateTotals(); saveSession(); }
+                    if(u) { e.target.checked ? u.selectedServices.add(e.target.dataset.key) : u.selectedServices.delete(e.target.dataset.key); calculateTotals(); }
                 });
             });
             updateCheckboxes();
@@ -661,14 +562,8 @@
         }
         function addInventoryItem() { const id = document.getElementById('inventory-selector').value; const item = inventory.find(i => i.id === id); if(item) addCustomLineItem(item.name, item.cost, 1); }
         function addCustomItemFromInput() { const name = document.getElementById('customPartName').value; const cost = parseFloat(document.getElementById('customPartCost').value)||0; const qty = parseFloat(document.getElementById('customPartQty').value)||1; if(name) { addCustomLineItem(name, cost, qty); document.getElementById('customPartName').value = ''; } }
-        
-        function addCustomLineItem(description, cost, qty) { 
-            if(!activeUnitId && units.length > 0) activeUnitId = units[0].id;
-            customLineItems.push({ id: Date.now(), description, cost, qty, unitId: activeUnitId }); 
-            calculateTotals(); 
-            saveSession();
-        }
-        window.removeLineItem = (id) => { customLineItems = customLineItems.filter(i => i.id !== id); calculateTotals(); saveSession(); }
+        function addCustomLineItem(description, cost, qty) { customLineItems.push({ id: Date.now(), description, cost, qty, unitId: activeUnitId }); calculateTotals(); }
+        window.removeLineItem = (id) => { customLineItems = customLineItems.filter(i => i.id !== id); calculateTotals(); }
         
         // --- MATH LOGIC ---
         function calculateTotals() {
@@ -714,6 +609,7 @@
                 if(unitItemsCount > 0) {
                     renderHeader(`${u.name} ${u.brand ? '('+u.brand+')' : ''}`);
                     tbody.innerHTML += unitItemsHTML.join('');
+                    // Unit Subtotal Row
                     tbody.innerHTML += `<tr class="bg-blue-50 border-b"><td class="px-4 py-1 text-xs text-right font-bold text-gray-600" colspan="2">Parts Subtotal: $${unitPartsCost.toFixed(2)}</td><td colspan="2"></td></tr>`;
                 }
             });
@@ -731,13 +627,14 @@
                 });
             }
 
+            // Labor Handling
             const laborInput = document.getElementById('laborHours');
             let finalLaborHrs = 0;
             if (manualLaborSet) {
                 finalLaborHrs = Number(laborInput.value) || 0;
             } else {
                 finalLaborHrs = laborHrsTotal;
-                laborInput.value = finalLaborHrs.toFixed(1); 
+                laborInput.value = finalLaborHrs.toFixed(1); // Auto-update value
             }
 
             const rate = Number(document.getElementById('laborRate').value) || 0;
@@ -773,8 +670,8 @@
             try { await setDoc(doc(collection(db, `artifacts/${FIREBASE_CONFIG.appId}/users/${userId}/hvac_estimates`)), data); showMessage("Estimate Saved!", "bg-green-100 text-green-700"); } catch(e) { console.error(e); alert("Error saving."); }
         }
         
-        function handlePhotoUpload(e) { const u = units.find(unit => unit.id === activeUnitId); if(!u || !e.target.files[0]) return; const reader = new FileReader(); reader.onload = (ev) => { u.photos.push(ev.target.result); renderUnitDetails(); saveSession(); }; reader.readAsDataURL(e.target.files[0]); }
-        window.removePhoto = (uId, idx) => { const u = units.find(unit => unit.id == uId); if(u) { u.photos.splice(idx, 1); renderUnitDetails(); saveSession(); } }
+        function handlePhotoUpload(e) { const u = units.find(unit => unit.id === activeUnitId); if(!u || !e.target.files[0]) return; const reader = new FileReader(); reader.onload = (ev) => { u.photos.push(ev.target.result); renderUnitDetails(); }; reader.readAsDataURL(e.target.files[0]); }
+        window.removePhoto = (uId, idx) => { const u = units.find(unit => unit.id == uId); if(u) { u.photos.splice(idx, 1); renderUnitDetails(); } }
         function showMessage(msg, classes) { const box = document.getElementById('message-box'); box.textContent = msg; box.className = `p-4 rounded-lg text-sm mb-6 transition-opacity duration-300 font-semibold text-center ${classes}`; box.classList.remove('hidden'); setTimeout(() => box.classList.add('hidden'), 3000); }
         
         async function generatePDF() {
