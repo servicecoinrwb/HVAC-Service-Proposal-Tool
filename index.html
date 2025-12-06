@@ -1,3 +1,20 @@
+That is a great idea. Hardcoding prices is limiting because costs change or you might want to add a specific repair type on the fly.
+
+I have updated the application to include a **"Service Manager"**.
+
+### **New Features:**
+
+1.  **⚙️ Edit Button:** Located next to the "Quick Select Services" header.
+2.  **Service Manager Modal:** A popup window where you can:
+      * **Edit Prices & Labor:** Change the default cost and labor hours for any item.
+      * **Add New Repairs:** Create your own standard repairs (e.g., "Turbo Capacitor", "Hard Start Kit").
+      * **Delete Items:** Remove services you don't use.
+      * **Reset Defaults:** If you mess up, you can restore the original list.
+3.  **Persistence:** Your custom price list is saved to your browser, so it remembers your changes next time you open the app.
+
+Here is the updated code:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,11 +34,19 @@
         .unit-tab-active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
         input:checked + label { background-color: #eff6ff; color: #2563eb; font-weight: 500; }
         #serviceListContainer { max-height: 65vh; overflow-y: auto; }
-        /* Improved Input Field Styling */
         .input-field { 
             @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out; 
         }
         .btn-google { @apply px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition duration-200 shadow-sm flex items-center justify-center space-x-2 text-sm; }
+        
+        /* Modal Styles */
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        body.modal-active {
+            overflow-x: hidden;
+            overflow-y: visible !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -32,6 +57,48 @@
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
         <span class="text-blue-600 font-medium">Connecting to Database...</span>
+    </div>
+
+    <div id="serviceManagerModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-3xl mx-auto rounded shadow-lg z-50 overflow-y-auto max-h-[90vh]">
+            <div class="modal-content py-4 text-left px-6">
+                <div class="flex justify-between items-center pb-3 border-b">
+                    <p class="text-2xl font-bold">Manage Services & Pricing</p>
+                    <div class="modal-close cursor-pointer z-50" onclick="toggleServiceModal()">
+                        <i class="fas fa-times text-gray-500 hover:text-red-500 text-xl"></i>
+                    </div>
+                </div>
+
+                <div class="my-5">
+                    <div class="flex justify-end mb-4 gap-2">
+                         <button onclick="resetDefaultServices()" class="text-xs text-red-500 hover:underline mr-auto">Reset to Defaults</button>
+                        <button onclick="addNewServiceRow()" class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">+ Add New Service</button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-100 text-left">
+                                    <th class="p-2">Category</th>
+                                    <th class="p-2">Service Name</th>
+                                    <th class="p-2 w-24">Cost ($)</th>
+                                    <th class="p-2 w-20">Labor (Hr)</th>
+                                    <th class="p-2 w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="serviceManagerBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-2 border-t gap-2">
+                    <button onclick="toggleServiceModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 text-gray-800">Cancel</button>
+                    <button onclick="saveCustomServices()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white font-bold">Save Changes</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="container mx-auto p-4 max-w-6xl">
@@ -64,7 +131,13 @@
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md flex flex-col h-full">
-                <h3 class="font-bold text-lg mb-2 text-gray-800">Quick Select Services</h3>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-lg text-gray-800">Quick Services</h3>
+                    <button onclick="toggleServiceModal()" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-gray-700 font-semibold">
+                        <i class="fa fa-cog mr-1"></i> Edit
+                    </button>
+                </div>
+                
                 <div class="flex border-b mb-4 flex-shrink-0 text-sm overflow-x-auto">
                     <button data-tab="residential" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg tab-active">Residential</button>
                     <button data-tab="commercial" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg">Commercial</button>
@@ -233,31 +306,26 @@
         };
         const { jsPDF } = window.jspdf;
 
-        // --- 2. DATA CONSTANTS ---
+        // --- 2. DATA CONSTANTS & DEFAULTS ---
         const brandOptions = [
             "Carrier", "Trane", "Lennox", "Goodman", "Rheem", "York", "American Standard", 
             "Bryant", "Daikin", "Mitsubishi", "Fujitsu", "LG", "Samsung", "Aaon", "Liebert", "Other"
         ];
         
-        const quickJobs = {
-            acMaintenance: { title: 'A/C Maintenance', cost: 15, labor: 1.5 },
-            furnaceMaintenance: { title: 'Furnace Maintenance', cost: 15, labor: 1.5 },
-            diagnostic: { title: 'Diagnostic / Service Call', cost: 0, labor: 1.0 },
-            capacitor: { title: 'Capacitor Replacement', cost: 25, labor: 0.5 },
-            contactor: { title: 'Contactor Replacement', cost: 20, labor: 0.5 },
-            recharge: { title: 'Refrigerant Recharge (lb)', cost: 35, labor: 0.5 },
-            leakSearch: { title: 'Leak Search', cost: 10, labor: 1.5 },
-            coilClean: { title: 'Chem Clean Coils', cost: 25, labor: 1.0 },
-            blowerMotor: { title: 'Blower Motor', cost: 150, labor: 2.0 },
-            condenserMotor: { title: 'Condenser Fan Motor', cost: 120, labor: 1.5 },
-            ignitor: { title: 'Hot Surface Ignitor', cost: 40, labor: 0.5 },
-            flameSensor: { title: 'Flame Sensor Clean/Repl', cost: 15, labor: 0.5 },
-            drainClear: { title: 'Clear Drain Line', cost: 5, labor: 1.0 }
-        };
-
-        const serviceCategories = {
-            residential: ["acMaintenance", "furnaceMaintenance", "diagnostic", "capacitor", "contactor", "recharge", "leakSearch", "coilClean", "drainClear", "ignitor"],
-            commercial: ["diagnostic", "acMaintenance", "furnaceMaintenance", "recharge", "blowerMotor", "condenserMotor", "contactor", "capacitor"]
+        const DEFAULT_JOBS = {
+            acMaintenance: { title: 'A/C Maintenance', cost: 15, labor: 1.5, category: 'residential' },
+            furnaceMaintenance: { title: 'Furnace Maintenance', cost: 15, labor: 1.5, category: 'residential' },
+            diagnostic: { title: 'Diagnostic / Service Call', cost: 0, labor: 1.0, category: 'both' },
+            capacitor: { title: 'Capacitor Replacement', cost: 25, labor: 0.5, category: 'both' },
+            contactor: { title: 'Contactor Replacement', cost: 20, labor: 0.5, category: 'both' },
+            recharge: { title: 'Refrigerant Recharge (lb)', cost: 35, labor: 0.5, category: 'both' },
+            leakSearch: { title: 'Leak Search', cost: 10, labor: 1.5, category: 'residential' },
+            coilClean: { title: 'Chem Clean Coils', cost: 25, labor: 1.0, category: 'both' },
+            blowerMotor: { title: 'Blower Motor', cost: 150, labor: 2.0, category: 'both' },
+            condenserMotor: { title: 'Condenser Fan Motor', cost: 120, labor: 1.5, category: 'both' },
+            ignitor: { title: 'Hot Surface Ignitor', cost: 40, labor: 0.5, category: 'residential' },
+            flameSensor: { title: 'Flame Sensor Clean/Repl', cost: 15, labor: 0.5, category: 'residential' },
+            drainClear: { title: 'Clear Drain Line', cost: 5, labor: 1.0, category: 'both' }
         };
 
         // --- 3. STATE MANAGEMENT ---
@@ -266,7 +334,8 @@
         let activeUnitId = null;
         let customLineItems = []; 
         let inventory = []; 
-        let customerDB = {}; // Stores imported CSV data
+        let customerDB = {}; 
+        let quickJobs = {}; // Now Dynamic
 
         // --- 4. FIREBASE INIT ---
         try {
@@ -289,8 +358,9 @@
 
         // --- 5. CORE FUNCTIONS ---
         function initApp() {
+            loadServiceData(); // Load custom services
             renderServiceChecklists('residential');
-            loadCachedCustomers(); // Load customers from local storage on startup
+            loadCachedCustomers();
 
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -319,6 +389,105 @@
             document.getElementById('google-sign-out').addEventListener('click', () => signOut(auth));
             document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
             document.getElementById('generatePdfBtn').addEventListener('click', generatePDF);
+            
+            // Edit Modal Listeners
+            // (Already handled by onclicks in HTML)
+        }
+
+        // --- DYNAMIC SERVICES LOGIC ---
+        function loadServiceData() {
+            const stored = localStorage.getItem('hvac_services_db');
+            if(stored) {
+                quickJobs = JSON.parse(stored);
+            } else {
+                quickJobs = JSON.parse(JSON.stringify(DEFAULT_JOBS)); // Deep copy defaults
+            }
+        }
+
+        window.saveCustomServices = () => {
+            // Read from Modal Table
+            const rows = document.querySelectorAll('#serviceManagerBody tr');
+            const newJobs = {};
+            
+            rows.forEach(row => {
+                const key = row.dataset.key;
+                const cat = row.querySelector('.sm-cat').value;
+                const name = row.querySelector('.sm-name').value;
+                const cost = parseFloat(row.querySelector('.sm-cost').value) || 0;
+                const labor = parseFloat(row.querySelector('.sm-labor').value) || 0;
+                
+                if(name) {
+                    newJobs[key] = { title: name, cost, labor, category: cat };
+                }
+            });
+
+            quickJobs = newJobs;
+            localStorage.setItem('hvac_services_db', JSON.stringify(quickJobs));
+            
+            // Refresh UI
+            toggleServiceModal();
+            const activeTab = document.querySelector('.tab-btn.tab-active').dataset.tab;
+            renderServiceChecklists(activeTab);
+            calculateTotals();
+            showMessage("Services Updated!", "bg-green-100 text-green-700");
+        }
+
+        window.resetDefaultServices = () => {
+            if(confirm("Reset all services and prices to defaults?")) {
+                quickJobs = JSON.parse(JSON.stringify(DEFAULT_JOBS));
+                localStorage.setItem('hvac_services_db', JSON.stringify(quickJobs));
+                renderServiceManager(); // Refresh modal
+            }
+        }
+
+        window.toggleServiceModal = () => {
+            const modal = document.getElementById('serviceManagerModal');
+            modal.classList.toggle('opacity-0');
+            modal.classList.toggle('pointer-events-none');
+            document.body.classList.toggle('modal-active');
+            
+            if(!modal.classList.contains('opacity-0')) {
+                renderServiceManager();
+            }
+        }
+
+        function renderServiceManager() {
+            const tbody = document.getElementById('serviceManagerBody');
+            tbody.innerHTML = '';
+            
+            Object.keys(quickJobs).forEach(key => {
+                const item = quickJobs[key];
+                addServiceManagerRow(key, item);
+            });
+        }
+
+        function addServiceManagerRow(key, item) {
+            const tbody = document.getElementById('serviceManagerBody');
+            const tr = document.createElement('tr');
+            tr.dataset.key = key;
+            tr.className = "border-b hover:bg-gray-50";
+            
+            tr.innerHTML = `
+                <td class="p-2">
+                    <select class="sm-cat border rounded p-1 text-xs">
+                        <option value="residential" ${item.category === 'residential' ? 'selected' : ''}>Res</option>
+                        <option value="commercial" ${item.category === 'commercial' ? 'selected' : ''}>Comm</option>
+                        <option value="both" ${item.category === 'both' ? 'selected' : ''}>Both</option>
+                    </select>
+                </td>
+                <td class="p-2"><input type="text" class="sm-name border rounded p-1 w-full" value="${item.title}"></td>
+                <td class="p-2"><input type="number" class="sm-cost border rounded p-1 w-full" value="${item.cost}"></td>
+                <td class="p-2"><input type="number" class="sm-labor border rounded p-1 w-full" value="${item.labor}"></td>
+                <td class="p-2 text-center">
+                    <button onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        window.addNewServiceRow = () => {
+            const key = 'custom_' + Date.now();
+            addServiceManagerRow(key, { title: '', cost: 0, labor: 0, category: 'both' });
         }
 
         // --- CSV IMPORT LOGIC ---
@@ -330,16 +499,12 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    // Pass total row count vs unique customer count
                     const totalRows = results.data.length;
                     const uniqueCount = processCsvData(results.data);
-                    
                     showMessage(`Imported ${uniqueCount} unique customers (from ${totalRows} records).`, "bg-green-100 text-green-700");
                     document.getElementById('csv-status').textContent = `DB: ${uniqueCount} Customers loaded`;
                 },
-                error: function(err) {
-                    alert("Error parsing CSV: " + err.message);
-                }
+                error: function(err) { alert("Error parsing CSV: " + err.message); }
             });
         }
 
@@ -348,9 +513,7 @@
             rows.forEach(row => {
                 const name = row['Customer'];
                 if (name) {
-                    // Only increment count if new customer
                     if(!customerDB[name]) uniqueCount++;
-                    
                     customerDB[name] = {
                         address: row['Service Address'] || '',
                         contact: row['Bill To'] || '',
@@ -358,11 +521,9 @@
                     };
                 }
             });
-            
-            // Save to LocalStorage for persistence across reloads
             localStorage.setItem('hvac_customer_db', JSON.stringify(customerDB));
             populateCustomerList();
-            return Object.keys(customerDB).length; // Return total unique
+            return Object.keys(customerDB).length;
         }
 
         function loadCachedCustomers() {
@@ -395,8 +556,6 @@
             if (data) {
                 document.getElementById('customerAddress').value = data.address;
                 document.getElementById('customerContact').value = data.contact;
-                
-                // Switch tabs based on location type
                 if (data.type) {
                     document.querySelectorAll('.tab-btn').forEach(btn => {
                         if (btn.dataset.tab === data.type) btn.click();
@@ -447,13 +606,11 @@
             const container = document.getElementById('unitDetailsContainer');
             if(!u) return;
 
-            // Brand Options Logic
             let brandSelectOptions = `<option value="" disabled ${!u.brand ? 'selected' : ''}>-- Select Brand --</option>`;
             brandOptions.forEach(b => {
                  brandSelectOptions += `<option value="${b}" ${u.brand === b ? 'selected' : ''}>${b}</option>`;
             });
 
-            // Logic to show custom brand input if 'Other' or unknown brand was saved previously
             const isCustomBrand = u.brand && !brandOptions.includes(u.brand);
             const showCustomInput = u.brand === 'Other' || isCustomBrand;
 
@@ -482,13 +639,12 @@
             `;
         }
         
-        // Exposed to Window for HTML calls
         window.handleBrandChange = (id, val) => {
             const customInput = document.getElementById(`brandCustom-${id}`);
             if(val === 'Other') {
                 customInput.classList.remove('hidden');
                 customInput.focus();
-                updateUnit(id, 'brand', ''); // Clear brand so custom input takes over
+                updateUnit(id, 'brand', '');
             } else {
                 customInput.classList.add('hidden');
                 updateUnit(id, 'brand', val);
@@ -504,16 +660,20 @@
         function renderServiceChecklists(type) {
             const container = document.getElementById('serviceListContainer');
             container.innerHTML = '';
-            const list = serviceCategories[type];
-            list.forEach(key => {
+            
+            // Use Dynamic quickJobs
+            Object.keys(quickJobs).forEach(key => {
                 const item = quickJobs[key];
-                const div = document.createElement('div');
-                div.className = 'flex items-center p-2 hover:bg-gray-50 rounded';
-                div.innerHTML = `
-                    <input type="checkbox" id="cb-${key}" data-key="${key}" class="service-cb w-4 h-4 text-blue-600 rounded">
-                    <label for="cb-${key}" class="ml-2 text-sm text-gray-700 w-full cursor-pointer select-none">${item.title}</label>
-                `;
-                container.appendChild(div);
+                // Filter by category (both, residential, commercial)
+                if(item.category === 'both' || item.category === type) {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center p-2 hover:bg-gray-50 rounded';
+                    div.innerHTML = `
+                        <input type="checkbox" id="cb-${key}" data-key="${key}" class="service-cb w-4 h-4 text-blue-600 rounded">
+                        <label for="cb-${key}" class="ml-2 text-sm text-gray-700 w-full cursor-pointer select-none">${item.title}</label>
+                    `;
+                    container.appendChild(div);
+                }
             });
             
             document.querySelectorAll('.service-cb').forEach(cb => {
@@ -589,16 +749,18 @@
             units.forEach(u => {
                 u.selectedServices.forEach(key => {
                     const job = quickJobs[key];
-                    partsTotal += job.cost;
-                    laborHrsTotal += job.labor;
-                    tbody.innerHTML += `
-                        <tr class="bg-blue-50/50 border-b">
-                            <td class="px-4 py-2 font-medium text-xs">${u.name}: ${job.title}</td>
-                            <td class="px-4 py-2 text-right text-xs">$${job.cost.toFixed(2)}</td>
-                            <td class="px-4 py-2 text-right text-xs">1</td>
-                            <td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td>
-                        </tr>
-                    `;
+                    if(job) { // Check if job still exists in dynamic list
+                        partsTotal += job.cost;
+                        laborHrsTotal += job.labor;
+                        tbody.innerHTML += `
+                            <tr class="bg-blue-50/50 border-b">
+                                <td class="px-4 py-2 font-medium text-xs">${u.name}: ${job.title}</td>
+                                <td class="px-4 py-2 text-right text-xs">$${job.cost.toFixed(2)}</td>
+                                <td class="px-4 py-2 text-right text-xs">1</td>
+                                <td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td>
+                            </tr>
+                        `;
+                    }
                 });
             });
 
@@ -733,7 +895,14 @@
                     doc.text(splitNotes, margin, y);
                     y += (splitNotes.length * 5) + 5;
                 }
-                u.selectedServices.forEach(key => { doc.text(`[x] ${quickJobs[key].title}`, margin + 5, y); y += 5; });
+                
+                // Safe check for quickJobs existence
+                u.selectedServices.forEach(key => { 
+                    const job = quickJobs[key];
+                    if(job) {
+                        doc.text(`[x] ${job.title}`, margin + 5, y); y += 5; 
+                    }
+                });
                 customLineItems.filter(i => i.unitId === u.id).forEach(i => { doc.text(`- ${i.description} (Qty: ${i.quantity})`, margin + 5, y); y += 5; });
                 y += 10;
             });
@@ -757,3 +926,4 @@
     </script>
 </body>
 </html>
+```
