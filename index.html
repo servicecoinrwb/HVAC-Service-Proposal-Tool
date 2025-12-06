@@ -22,7 +22,6 @@
         }
         .btn-google { @apply px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition duration-200 shadow-sm flex items-center justify-center space-x-2 text-sm; }
         
-        /* Modal Styles */
         .modal { transition: opacity 0.25s ease; }
         body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
     </style>
@@ -207,7 +206,7 @@
                         <div class="space-y-3">
                             <div class="flex justify-between items-center">
                                 <label class="text-sm">Labor Hours:</label>
-                                <input type="number" id="laborHours" class="w-20 p-1 text-black rounded text-center" step="0.5">
+                                <input type="number" id="laborHours" class="w-20 p-1 text-black rounded text-center font-bold" step="0.5" value="0">
                             </div>
                             <div class="flex justify-between items-center">
                                 <label class="text-sm">Labor Rate ($/hr):</label>
@@ -230,9 +229,10 @@
                                     <input type="number" id="marginPercent" class="w-16 p-1 text-black rounded text-center font-bold" value="50">
                                     <span class="ml-1">%</span>
                                 </div>
-                                <div>
-                                    <div class="text-xs text-slate-400">Total Price</div>
+                                <div class="flex flex-col items-end">
+                                    <div class="text-xs text-green-400 mb-1" id="profitDisplay">Profit: $0.00</div>
                                     <div id="grandTotal" class="text-2xl font-bold text-green-400 font-mono">$0.00</div>
+                                    <div class="text-xs text-slate-400">Total Customer Price</div>
                                 </div>
                             </div>
                         </div>
@@ -300,6 +300,9 @@
         let inventory = []; 
         let customerDB = {}; 
         let quickJobs = {}; 
+        
+        // Track manual labor override
+        let manualLaborSet = false;
 
         // Init
         try {
@@ -335,9 +338,18 @@
             document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
             document.getElementById('csvInput').addEventListener('change', handleCsvUpload);
             document.getElementById('customerName').addEventListener('input', autofillCustomer);
-            ['laborHours', 'laborRate', 'tripCharge', 'marginPercent'].forEach(id => {
-                document.getElementById(id).addEventListener('input', calculateTotals);
+            
+            // Listeners for calc
+            document.getElementById('laborRate').addEventListener('input', calculateTotals);
+            document.getElementById('tripCharge').addEventListener('input', calculateTotals);
+            document.getElementById('marginPercent').addEventListener('input', calculateTotals);
+            
+            // Special handling for Labor Hours input to track manual override
+            document.getElementById('laborHours').addEventListener('input', (e) => {
+                manualLaborSet = true;
+                calculateTotals();
             });
+
             document.getElementById('google-sign-in').addEventListener('click', () => signInWithPopup(auth, new GoogleAuthProvider()));
             document.getElementById('google-sign-out').addEventListener('click', () => signOut(auth));
             document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
@@ -363,7 +375,8 @@
             quickJobs = newJobs;
             localStorage.setItem('hvac_services_db', JSON.stringify(quickJobs));
             toggleServiceModal();
-            renderServiceChecklists(document.querySelector('.tab-btn.tab-active').dataset.tab);
+            const activeTab = document.querySelector('.tab-btn.tab-active');
+            renderServiceChecklists(activeTab ? activeTab.dataset.tab : 'residential');
             calculateTotals();
         }
         window.resetDefaultServices = () => {
@@ -498,12 +511,10 @@
                     <input type="text" value="${u.model}" class="input-field" oninput="updateUnit('${u.id}', 'model', this.value)" placeholder="Model #">
                     <input type="text" value="${u.serial}" class="input-field" oninput="updateUnit('${u.id}', 'serial', this.value)" placeholder="Serial #">
                 </div>
-                
                 <div class="mb-4">
                     <label class="block text-sm font-bold text-gray-700 mb-1">Diagnosis / Service Notes</label>
-                    <textarea class="input-field w-full min-h-[200px] resize-y text-base p-4 border-gray-400 bg-yellow-50 focus:bg-white" placeholder="Type detailed diagnosis here. This box is now full width and expandable." oninput="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
+                    <textarea class="input-field w-full min-h-[200px] resize-y text-base p-4 border-gray-400 bg-yellow-50 focus:bg-white" placeholder="Type detailed diagnosis here..." oninput="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
                 </div>
-                
                 <div class="flex flex-wrap gap-2 mb-2" id="photoGallery-${u.id}">
                     ${u.photos.map((src, idx) => `<div class="relative w-20 h-20"><img src="${src}" class="w-full h-full object-cover rounded border shadow"><button onclick="removePhoto('${u.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hover:bg-red-700">&times;</button></div>`).join('')}
                 </div>
@@ -554,9 +565,10 @@
         function addCustomLineItem(description, cost, qty) { customLineItems.push({ id: Date.now(), description, cost, qty, unitId: activeUnitId }); calculateTotals(); }
         window.removeLineItem = (id) => { customLineItems = customLineItems.filter(i => i.id !== id); calculateTotals(); }
         
-        // --- NEW CALCULATE TOTALS WITH SPLIT SECTIONS ---
+        // --- MATH LOGIC ---
         function calculateTotals() {
-            let partsTotal = 0; let laborHrsTotal = 0; 
+            let partsTotal = 0; 
+            let laborHrsTotal = 0; 
             const tbody = document.getElementById('combinedLineItemsBody'); 
             tbody.innerHTML = '';
             
@@ -565,62 +577,99 @@
             };
 
             units.forEach(u => {
-                let hasItems = false;
+                let unitPartsCost = 0;
+                let unitItemsCount = 0;
                 const unitItemsHTML = [];
 
                 // Checklists
                 u.selectedServices.forEach(key => {
                     const job = quickJobs[key];
                     if(job) {
-                        partsTotal += job.cost; laborHrsTotal += job.labor; hasItems = true;
-                        unitItemsHTML.push(`<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${job.title}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${job.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">1</td><td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td></tr>`);
+                        const cost = Number(job.cost) || 0;
+                        const labor = Number(job.labor) || 0;
+                        unitPartsCost += cost;
+                        partsTotal += cost; 
+                        laborHrsTotal += labor;
+                        unitItemsCount++;
+                        unitItemsHTML.push(`<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${job.title}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">1</td><td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td></tr>`);
                     }
                 });
 
-                // Custom Items (Matched by Unit ID)
+                // Custom Items
                 customLineItems.filter(i => i.unitId === u.id).forEach(item => {
-                    partsTotal += (item.cost * item.quantity); hasItems = true;
-                    unitItemsHTML.push(`<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${item.description}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${item.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">${item.quantity}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button></td></tr>`);
+                    const cost = Number(item.cost) || 0;
+                    const qty = Number(item.quantity) || 1;
+                    const total = cost * qty;
+                    unitPartsCost += total;
+                    partsTotal += total;
+                    unitItemsCount++;
+                    unitItemsHTML.push(`<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${item.description}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">${qty}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button></td></tr>`);
                 });
 
-                if(hasItems) {
+                if(unitItemsCount > 0) {
                     renderHeader(`${u.name} ${u.brand ? '('+u.brand+')' : ''}`);
                     tbody.innerHTML += unitItemsHTML.join('');
+                    // Unit Subtotal Row
+                    tbody.innerHTML += `<tr class="bg-blue-50 border-b"><td class="px-4 py-1 text-xs text-right font-bold text-gray-600" colspan="2">Parts Subtotal: $${unitPartsCost.toFixed(2)}</td><td colspan="2"></td></tr>`;
                 }
             });
             
-            // Handle General/Unassigned Items
+            // Handle General/Unassigned
             const activeUnitIds = units.map(u => u.id);
             const orphanedItems = customLineItems.filter(i => !activeUnitIds.includes(i.unitId));
             if(orphanedItems.length > 0) {
                 renderHeader("General / Unassigned");
                 orphanedItems.forEach(item => {
-                    partsTotal += (item.cost * item.quantity);
-                    tbody.innerHTML += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${item.description}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${item.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">${item.quantity}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button></td></tr>`;
+                    const cost = Number(item.cost) || 0;
+                    const qty = Number(item.quantity) || 1;
+                    partsTotal += (cost * qty);
+                    tbody.innerHTML += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${item.description}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">${qty}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button></td></tr>`;
                 });
             }
 
-            const manualLabor = parseFloat(document.getElementById('laborHours').value);
-            const finalLaborHrs = isNaN(manualLabor) ? laborHrsTotal : manualLabor;
-            if(isNaN(manualLabor)) document.getElementById('laborHours').placeholder = laborHrsTotal.toFixed(1);
-            const rate = parseFloat(document.getElementById('laborRate').value)||0; const trip = parseFloat(document.getElementById('tripCharge').value)||0;
-            const laborCost = finalLaborHrs * rate; const subtotal = partsTotal + laborCost + trip;
-            const margin = parseFloat(document.getElementById('marginPercent').value)||0;
-            const price = margin > 0 && margin < 100 ? subtotal / (1 - (margin/100)) : subtotal;
+            // Labor Handling
+            const laborInput = document.getElementById('laborHours');
+            let finalLaborHrs = 0;
+            if (manualLaborSet) {
+                finalLaborHrs = Number(laborInput.value) || 0;
+            } else {
+                finalLaborHrs = laborHrsTotal;
+                laborInput.value = finalLaborHrs.toFixed(1); // Auto-update value
+            }
+
+            const rate = Number(document.getElementById('laborRate').value) || 0;
+            const trip = Number(document.getElementById('tripCharge').value) || 0;
+            
+            const laborCost = finalLaborHrs * rate;
+            const subtotal = partsTotal + laborCost + trip;
+            
+            const marginInput = document.getElementById('marginPercent').value;
+            const margin = Number(marginInput) || 0;
+            
+            let price = subtotal;
+            if(margin > 0 && margin < 100) {
+                price = subtotal / (1 - (margin/100));
+            }
+            
+            const profit = price - subtotal;
+
             document.getElementById('totalParts').textContent = `$${partsTotal.toFixed(2)}`;
             document.getElementById('totalLabor').textContent = `$${laborCost.toFixed(2)}`;
             document.getElementById('subtotalCost').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('profitDisplay').textContent = `Profit: $${profit.toFixed(2)}`;
             document.getElementById('grandTotal').textContent = `$${price.toFixed(2)}`;
         }
 
         // --- AUTH/PDF ---
         function handleLoginUI(user) { document.getElementById('google-sign-in').classList.add('hidden'); document.getElementById('user-panel').classList.remove('hidden'); document.getElementById('user-email').textContent = user.email; document.getElementById('saveCloudBtn').classList.remove('hidden'); document.getElementById('connection-status').textContent = "● Database Connected"; }
         function handleLogoutUI() { document.getElementById('google-sign-in').classList.remove('hidden'); document.getElementById('user-panel').classList.add('hidden'); document.getElementById('saveCloudBtn').classList.add('hidden'); document.getElementById('connection-status').textContent = "○ Local Mode Only"; }
+        
         async function saveToCloud() {
             if(!userId) return alert("Sign in first."); const name = document.getElementById('customerName').value; if(!name) return alert("Customer Name Required");
             const data = { customer: { name, contact: document.getElementById('customerContact').value, address: document.getElementById('customerAddress').value, workOrder: document.getElementById('workOrderNo').value }, units: units.map(u => ({...u, selectedServices: Array.from(u.selectedServices)})), customLineItems, financials: { laborRate: document.getElementById('laborRate').value, trip: document.getElementById('tripCharge').value, margin: document.getElementById('marginPercent').value, total: document.getElementById('grandTotal').textContent }, timestamp: serverTimestamp() };
             try { await setDoc(doc(collection(db, `artifacts/${FIREBASE_CONFIG.appId}/users/${userId}/hvac_estimates`)), data); showMessage("Estimate Saved!", "bg-green-100 text-green-700"); } catch(e) { console.error(e); alert("Error saving."); }
         }
+        
         function handlePhotoUpload(e) { const u = units.find(unit => unit.id === activeUnitId); if(!u || !e.target.files[0]) return; const reader = new FileReader(); reader.onload = (ev) => { u.photos.push(ev.target.result); renderUnitDetails(); }; reader.readAsDataURL(e.target.files[0]); }
         window.removePhoto = (uId, idx) => { const u = units.find(unit => unit.id == uId); if(u) { u.photos.splice(idx, 1); renderUnitDetails(); } }
         function showMessage(msg, classes) { const box = document.getElementById('message-box'); box.textContent = msg; box.className = `p-4 rounded-lg text-sm mb-6 transition-opacity duration-300 font-semibold text-center ${classes}`; box.classList.remove('hidden'); setTimeout(() => box.classList.add('hidden'), 3000); }
