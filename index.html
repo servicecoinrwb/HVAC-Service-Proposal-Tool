@@ -7,20 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script> <style>
         body { font-family: 'Inter', sans-serif; }
         .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; }
         .unit-tab-active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
         input:checked + label { background-color: #eff6ff; color: #2563eb; font-weight: 500; }
         #serviceListContainer { max-height: 65vh; overflow-y: auto; }
         .input-field { @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm; }
-        
-        /* Google Button Style */
-        .btn-google {
-            @apply px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition duration-200 shadow-sm flex items-center justify-center space-x-2 text-sm;
-        }
+        .btn-google { @apply px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition duration-200 shadow-sm flex items-center justify-center space-x-2 text-sm; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -48,7 +44,7 @@
                 <div id="auth-ui">
                     <button id="google-sign-in" class="btn-google">
                         <i class="fab fa-google text-blue-500"></i>
-                        <span>Sign In to Save/Load</span>
+                        <span>Sign In to Cloud</span>
                     </button>
                     <div id="user-panel" class="hidden flex items-center space-x-3">
                         <span id="user-email" class="text-sm text-gray-600 font-medium"></span>
@@ -75,17 +71,27 @@
             <div id="jobDetailsPanel" class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
                 
                 <div class="mb-6 border-b pb-4">
-                    <h2 class="text-xl font-bold mb-4 flex justify-between">
-                        <span>Customer Information</span>
-                        <button id="saveCloudBtn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 hidden">
-                            <i class="fa fa-cloud-upload-alt mr-1"></i> Save to Cloud
-                        </button>
-                    </h2>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">Customer Information</h2>
+                        <div class="flex space-x-2">
+                            <input type="file" id="csvInput" accept=".csv" class="hidden">
+                            <button onclick="document.getElementById('csvInput').click()" class="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 flex items-center">
+                                <i class="fa fa-file-csv mr-1"></i> 📂 Import AppSheet CSV
+                            </button>
+                            <button id="saveCloudBtn" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 hidden">
+                                <i class="fa fa-cloud-upload-alt mr-1"></i> Save to Cloud
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input type="text" id="customerName" placeholder="Name" class="input-field">
-                        <input type="text" id="customerContact" placeholder="Phone / Email" class="input-field">
+                        <div class="relative">
+                            <input type="text" id="customerName" placeholder="Search Customer Name..." list="customerOptions" class="input-field" autocomplete="off">
+                            <datalist id="customerOptions"></datalist> </div>
+                        <input type="text" id="customerContact" placeholder="Contact / Bill To" class="input-field">
                         <input type="text" id="customerAddress" placeholder="Service Address" class="input-field sm:col-span-2">
                     </div>
+                    <p id="csv-status" class="text-xs text-gray-500 mt-2 italic text-right"></p>
                 </div>
 
                 <div class="mb-6">
@@ -131,8 +137,7 @@
                                     <th class="px-4 py-2 text-center">Delete</th>
                                 </tr>
                             </thead>
-                            <tbody id="combinedLineItemsBody">
-                                </tbody>
+                            <tbody id="combinedLineItemsBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -143,7 +148,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-3">
                             <div class="flex justify-between items-center">
-                                <label class="text-sm">Labor Hours (Auto/Manual):</label>
+                                <label class="text-sm">Labor Hours:</label>
                                 <input type="number" id="laborHours" class="w-20 p-1 text-black rounded text-center" step="0.5">
                             </div>
                             <div class="flex justify-between items-center">
@@ -151,7 +156,7 @@
                                 <input type="number" id="laborRate" class="w-20 p-1 text-black rounded text-center" value="125">
                             </div>
                             <div class="flex justify-between items-center">
-                                <label class="text-sm">Trip/Truck Charge:</label>
+                                <label class="text-sm">Trip Charge:</label>
                                 <input type="number" id="tripCharge" class="w-20 p-1 text-black rounded text-center" value="45">
                             </div>
                         </div>
@@ -159,16 +164,16 @@
                         <div class="space-y-2 text-right">
                             <div class="flex justify-between"><span>Parts Cost:</span> <span id="totalParts" class="font-mono">$0.00</span></div>
                             <div class="flex justify-between"><span>Labor Cost:</span> <span id="totalLabor" class="font-mono">$0.00</span></div>
-                            <div class="flex justify-between border-t border-slate-600 pt-2 font-bold"><span>Subtotal (Cost):</span> <span id="subtotalCost" class="font-mono">$0.00</span></div>
+                            <div class="flex justify-between border-t border-slate-600 pt-2 font-bold"><span>Subtotal:</span> <span id="subtotalCost" class="font-mono">$0.00</span></div>
                             
                             <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-600">
                                 <div class="flex items-center">
-                                    <span class="mr-2 text-sm">Target Margin:</span>
+                                    <span class="mr-2 text-sm">Margin:</span>
                                     <input type="number" id="marginPercent" class="w-16 p-1 text-black rounded text-center font-bold" value="50">
                                     <span class="ml-1">%</span>
                                 </div>
                                 <div>
-                                    <div class="text-xs text-slate-400">Customer Price</div>
+                                    <div class="text-xs text-slate-400">Total Price</div>
                                     <div id="grandTotal" class="text-2xl font-bold text-green-400 font-mono">$0.00</div>
                                 </div>
                             </div>
@@ -208,7 +213,7 @@
         };
         const { jsPDF } = window.jspdf;
 
-        // --- 2. DATA CONSTANTS (Quick Checklists) ---
+        // --- 2. DATA CONSTANTS ---
         const quickJobs = {
             acMaintenance: { title: 'A/C Maintenance', cost: 15, labor: 1.5 },
             furnaceMaintenance: { title: 'Furnace Maintenance', cost: 15, labor: 1.5 },
@@ -218,7 +223,7 @@
             recharge: { title: 'Refrigerant Recharge (lb)', cost: 35, labor: 0.5 },
             leakSearch: { title: 'Leak Search', cost: 10, labor: 1.5 },
             coilClean: { title: 'Chem Clean Coils', cost: 25, labor: 1.0 },
-            blowerMotor: { title: 'Blower Motor (Generic)', cost: 150, labor: 2.0 },
+            blowerMotor: { title: 'Blower Motor', cost: 150, labor: 2.0 },
             condenserMotor: { title: 'Condenser Fan Motor', cost: 120, labor: 1.5 },
             ignitor: { title: 'Hot Surface Ignitor', cost: 40, labor: 0.5 },
             flameSensor: { title: 'Flame Sensor Clean/Repl', cost: 15, labor: 0.5 },
@@ -234,8 +239,9 @@
         let app, auth, db, userId;
         let units = [];
         let activeUnitId = null;
-        let customLineItems = []; // { id, description, cost, qty, unitId }
-        let inventory = []; // From Firestore
+        let customLineItems = []; 
+        let inventory = []; 
+        let customerDB = {}; // Stores imported CSV data
 
         // --- 4. FIREBASE INIT ---
         try {
@@ -248,22 +254,19 @@
                 if (user) {
                     userId = user.uid;
                     handleLoginUI(user);
-                    loadInventory(); // Load parts from Cloud
+                    loadInventory(); 
                 } else {
                     userId = null;
                     handleLogoutUI();
                 }
             });
-        } catch (e) {
-            console.error("Firebase Error", e);
-            alert("Database connection failed.");
-        }
+        } catch (e) { console.error("Firebase Error", e); }
 
         // --- 5. CORE FUNCTIONS ---
-
         function initApp() {
-            // Setup Tabs
             renderServiceChecklists('residential');
+            loadCachedCustomers(); // Load customers from local storage on startup
+
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
@@ -272,26 +275,106 @@
                 });
             });
 
-            // Unit Management
-            if(units.length === 0) addUnit(); // Start with 1 unit
+            if(units.length === 0) addUnit(); 
 
-            // Event Listeners
+            // Listener Assignments
             document.getElementById('addUnitBtn').addEventListener('click', addUnit);
             document.getElementById('removeUnitBtn').addEventListener('click', removeActiveUnit);
             document.getElementById('addCustomLineItemBtn').addEventListener('click', addCustomItemFromInput);
             document.getElementById('addInventoryItemBtn').addEventListener('click', addInventoryItem);
             document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
+            document.getElementById('csvInput').addEventListener('change', handleCsvUpload);
+            document.getElementById('customerName').addEventListener('input', autofillCustomer);
             
-            // Calc Triggers
             ['laborHours', 'laborRate', 'tripCharge', 'marginPercent'].forEach(id => {
                 document.getElementById(id).addEventListener('input', calculateTotals);
             });
 
-            // Auth Triggers
             document.getElementById('google-sign-in').addEventListener('click', () => signInWithPopup(auth, new GoogleAuthProvider()));
             document.getElementById('google-sign-out').addEventListener('click', () => signOut(auth));
             document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
             document.getElementById('generatePdfBtn').addEventListener('click', generatePDF);
+        }
+
+        // --- CSV IMPORT LOGIC ---
+        function handleCsvUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const count = processCsvData(results.data);
+                    showMessage(`Successfully imported ${count} customers!`, "bg-green-100 text-green-700");
+                    document.getElementById('csv-status').textContent = `Loaded ${count} customers from CSV`;
+                },
+                error: function(err) {
+                    alert("Error parsing CSV: " + err.message);
+                }
+            });
+        }
+
+        function processCsvData(rows) {
+            let count = 0;
+            rows.forEach(row => {
+                // Mapping based on AppSheet.ViewData structure
+                const name = row['Customer'];
+                if (name) {
+                    customerDB[name] = {
+                        address: row['Service Address'] || '',
+                        contact: row['Bill To'] || '',
+                        type: (row['Location Type'] || '').toLowerCase().includes('commercial') ? 'commercial' : 'residential'
+                    };
+                    count++;
+                }
+            });
+            
+            // Save to LocalStorage for persistence across reloads
+            localStorage.setItem('hvac_customer_db', JSON.stringify(customerDB));
+            populateCustomerList();
+            return count;
+        }
+
+        function loadCachedCustomers() {
+            const cached = localStorage.getItem('hvac_customer_db');
+            if (cached) {
+                try {
+                    customerDB = JSON.parse(cached);
+                    const count = Object.keys(customerDB).length;
+                    if (count > 0) {
+                        document.getElementById('csv-status').textContent = `Loaded ${count} cached customers`;
+                        populateCustomerList();
+                    }
+                } catch (e) { console.error("Cache error", e); }
+            }
+        }
+
+        function populateCustomerList() {
+            const datalist = document.getElementById('customerOptions');
+            datalist.innerHTML = '';
+            Object.keys(customerDB).sort().forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                datalist.appendChild(opt);
+            });
+        }
+
+        function autofillCustomer(e) {
+            const val = e.target.value;
+            const data = customerDB[val];
+            if (data) {
+                document.getElementById('customerAddress').value = data.address;
+                document.getElementById('customerContact').value = data.contact;
+                
+                // Switch tabs based on location type
+                if (data.type) {
+                    document.querySelectorAll('.tab-btn').forEach(btn => {
+                        if (btn.dataset.tab === data.type) btn.click();
+                    });
+                }
+                showMessage("Customer details autofilled!", "bg-blue-100 text-blue-700");
+            }
         }
 
         // --- UNIT LOGIC ---
@@ -356,7 +439,7 @@
             if(u) { u[field] = val; if(field === 'name') renderUnitTabs(); }
         }
 
-        // --- CHECKLIST LOGIC ---
+        // --- CHECKLIST & CALCS ---
         function renderServiceChecklists(type) {
             const container = document.getElementById('serviceListContainer');
             container.innerHTML = '';
@@ -372,7 +455,6 @@
                 container.appendChild(div);
             });
             
-            // Re-attach listeners
             document.querySelectorAll('.service-cb').forEach(cb => {
                 cb.addEventListener('change', (e) => {
                     const u = units.find(unit => unit.id === activeUnitId);
@@ -392,7 +474,6 @@
             });
         }
 
-        // --- INVENTORY & CUSTOM ITEMS ---
         function loadInventory() {
             if(!userId) return;
             const ref = collection(db, `artifacts/${FIREBASE_CONFIG.appId}/users/${userId}/hvac_inventory`);
@@ -400,7 +481,6 @@
                 inventory = [];
                 const select = document.getElementById('inventory-selector');
                 select.innerHTML = '<option value="" disabled selected>-- Quick Add from Inventory --</option>';
-                
                 snap.forEach(doc => {
                     const data = doc.data();
                     inventory.push({ id: doc.id, ...data });
@@ -439,21 +519,17 @@
             calculateTotals();
         }
 
-        // --- CALCULATIONS & SUMMARY ---
         function calculateTotals() {
             let partsTotal = 0;
             let laborHrsTotal = 0;
             const tbody = document.getElementById('combinedLineItemsBody');
             tbody.innerHTML = '';
 
-            // 1. Process Checklists from All Units
             units.forEach(u => {
                 u.selectedServices.forEach(key => {
                     const job = quickJobs[key];
                     partsTotal += job.cost;
                     laborHrsTotal += job.labor;
-                    
-                    // Add to table
                     tbody.innerHTML += `
                         <tr class="bg-blue-50/50 border-b">
                             <td class="px-4 py-2 font-medium text-xs">${u.name}: ${job.title}</td>
@@ -465,7 +541,6 @@
                 });
             });
 
-            // 2. Process Custom Items
             customLineItems.forEach(item => {
                 partsTotal += (item.cost * item.quantity);
                 const uName = units.find(u => u.id === item.unitId)?.name || 'General';
@@ -481,29 +556,24 @@
                 `;
             });
 
-            // 3. Labor & Misc
             const manualLabor = parseFloat(document.getElementById('laborHours').value);
             const finalLaborHrs = isNaN(manualLabor) ? laborHrsTotal : manualLabor;
             if(isNaN(manualLabor)) document.getElementById('laborHours').placeholder = laborHrsTotal.toFixed(1);
 
             const rate = parseFloat(document.getElementById('laborRate').value) || 0;
             const trip = parseFloat(document.getElementById('tripCharge').value) || 0;
-            
             const laborCost = finalLaborHrs * rate;
             const subtotal = partsTotal + laborCost + trip;
-
-            // 4. Margin & Price
             const margin = parseFloat(document.getElementById('marginPercent').value) || 0;
             const price = margin > 0 && margin < 100 ? subtotal / (1 - (margin/100)) : subtotal;
 
-            // Update UI
             document.getElementById('totalParts').textContent = `$${partsTotal.toFixed(2)}`;
             document.getElementById('totalLabor').textContent = `$${laborCost.toFixed(2)}`;
             document.getElementById('subtotalCost').textContent = `$${subtotal.toFixed(2)}`;
             document.getElementById('grandTotal').textContent = `$${price.toFixed(2)}`;
         }
 
-        // --- AUTH UI HANDLERS ---
+        // --- AUTH & HELPERS ---
         function handleLoginUI(user) {
             document.getElementById('google-sign-in').classList.add('hidden');
             document.getElementById('user-panel').classList.remove('hidden');
@@ -521,12 +591,10 @@
             document.getElementById('connection-status').textContent = "○ Local Mode Only";
         }
 
-        // --- SAVING & PDF ---
         async function saveToCloud() {
             if(!userId) return alert("Sign in first.");
             const name = document.getElementById('customerName').value;
             if(!name) return alert("Customer Name Required");
-
             const data = {
                 customer: {
                     name,
@@ -543,14 +611,10 @@
                 },
                 timestamp: serverTimestamp()
             };
-
             try {
                 await setDoc(doc(collection(db, `artifacts/${FIREBASE_CONFIG.appId}/users/${userId}/hvac_estimates`)), data);
                 showMessage("Estimate Saved to Cloud!", "bg-green-100 text-green-700");
-            } catch(e) {
-                console.error(e);
-                alert("Error saving.");
-            }
+            } catch(e) { console.error(e); alert("Error saving."); }
         }
 
         function handlePhotoUpload(e) {
@@ -582,25 +646,16 @@
             const margin = 15;
             let y = 20;
 
-            // Header
             doc.setFontSize(22).setTextColor(40).text("HVAC Service Report", margin, y);
             y += 10;
             doc.setFontSize(10).setTextColor(100).text("Mechanical Temp Service", margin, y);
             y += 15;
 
-            // Customer
-            doc.setDrawColor(200);
-            doc.line(margin, y, 195, y);
-            y += 10;
-            doc.setFontSize(12).setTextColor(0).text("Customer:", margin, y);
-            doc.setFontSize(10);
-            y += 6;
-            doc.text(`Name: ${document.getElementById('customerName').value}`, margin, y);
-            y += 5;
-            doc.text(`Address: ${document.getElementById('customerAddress').value}`, margin, y);
-            y += 10;
+            doc.setDrawColor(200); doc.line(margin, y, 195, y); y += 10;
+            doc.setFontSize(12).setTextColor(0).text("Customer:", margin, y); doc.setFontSize(10); y += 6;
+            doc.text(`Name: ${document.getElementById('customerName').value}`, margin, y); y += 5;
+            doc.text(`Address: ${document.getElementById('customerAddress').value}`, margin, y); y += 10;
 
-            // Units & Work
             units.forEach(u => {
                 if(y > 250) { doc.addPage(); y = 20; }
                 doc.setFontSize(14).setFont(undefined, 'bold').text(`${u.name} (${u.brand || 'N/A'})`, margin, y);
@@ -611,29 +666,15 @@
                     doc.text(splitNotes, margin, y);
                     y += (splitNotes.length * 5) + 5;
                 }
-                
-                // Checklist Items
-                u.selectedServices.forEach(key => {
-                     doc.text(`[x] ${quickJobs[key].title}`, margin + 5, y);
-                     y += 5;
-                });
-                
-                // Custom Items for this unit
-                customLineItems.filter(i => i.unitId === u.id).forEach(i => {
-                    doc.text(`- ${i.description} (Qty: ${i.quantity})`, margin + 5, y);
-                    y += 5;
-                });
+                u.selectedServices.forEach(key => { doc.text(`[x] ${quickJobs[key].title}`, margin + 5, y); y += 5; });
+                customLineItems.filter(i => i.unitId === u.id).forEach(i => { doc.text(`- ${i.description} (Qty: ${i.quantity})`, margin + 5, y); y += 5; });
                 y += 10;
             });
 
-            // Pricing
-            const option = document.getElementById('pdfOption').value;
-            y = 250; // Bottom of page
-            doc.line(margin, y, 195, y);
-            y += 10;
+            y = 250; doc.line(margin, y, 195, y); y += 10;
             doc.setFontSize(14).setFont(undefined, 'bold');
             
-            if(option === 'flatRate') {
+            if(document.getElementById('pdfOption').value === 'flatRate') {
                 doc.text(`Total Investment: ${document.getElementById('grandTotal').textContent}`, margin, y);
             } else {
                 doc.setFontSize(10);
@@ -642,13 +683,10 @@
                 doc.setFontSize(14);
                 doc.text(`Total: ${document.getElementById('grandTotal').textContent}`, margin, y+5);
             }
-
             doc.save('Service_Report.pdf');
         }
 
-        // Init
         initApp();
-
     </script>
 </body>
 </html>
