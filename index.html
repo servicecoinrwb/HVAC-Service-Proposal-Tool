@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HVAC Field Service App - Customizable</title>
+    <title>HVAC Field Service App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18,24 +18,20 @@
             color: #3b82f6;
             font-weight: 600;
         }
-        /* Custom Checkbox Styling for cleaner look */
-        .service-checkbox:checked + label {
+        input:checked + label {
             background-color: #eff6ff;
             color: #2563eb;
             font-weight: 500;
         }
-        .service-checkbox:checked + label .check-icon {
-            opacity: 1;
-        }
         #serviceListContainer {
-            max-height: 60vh;
+            max-height: 65vh;
             overflow-y: auto;
         }
         .nav-link-active {
             color: #3b82f6;
             font-weight: 600;
         }
-        #photoModal, #serviceEditorModal {
+        #photoModal {
             background-color: rgba(0,0,0,0.7);
         }
         .unit-tab-active {
@@ -43,177 +39,166 @@
             color: white;
             border-color: #3b82f6;
         }
-        /* Edit Mode Styles */
-        .edit-mode-btn {
-            display: none;
-        }
-        .edit-mode-active .edit-mode-btn {
-            display: inline-flex;
-        }
-        .edit-mode-active .service-select-indicator {
-            display: none;
+        .result-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            @apply p-3 rounded-xl shadow-lg text-center transition-all duration-300;
         }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <div class="container mx-auto p-2 md:p-4 max-w-6xl">
+    <div class="container mx-auto p-4 max-w-5xl">
 
-        <!-- Header -->
+        <!-- Header with Full Navigation -->
         <header class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col md:flex-row justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900"><i class="fa fa-wrench text-blue-600 mr-2"></i>HVAC Service Tech App</h1>
-                <p class="text-xs text-gray-500 mt-1">Estimating & Invoicing Tool</p>
+                <h1 class="text-2xl font-bold text-gray-900">HVAC Service Tech App</h1>
+                <p class="text-sm text-gray-600">A Mechanical Temp Tool</p>
             </div>
-            <nav class="mt-4 md:mt-0 flex flex-wrap gap-4 text-sm font-medium">
-                <button id="resetAppBtn" class="text-red-500 hover:text-red-700 border border-red-200 px-3 py-1 rounded bg-red-50">Reset to Defaults</button>
+            <nav class="mt-4 md:mt-0">
+                <ul class="flex items-center space-x-4 md:space-x-6 text-sm font-medium">
+                    <li><a href="https://dashboard.mechanicaltemp.com/" class="text-gray-600 hover:text-blue-600">Dashboard</a></li>
+                    <li><a href="https://servicecoinrwb.github.io/HVAC-R-Troubleshooting-Guide/" class="text-gray-600 hover:text-blue-600">Troubleshooting Guide</a></li>
+                    <li><a href="https://buy.stripe.com/bIY01kg5K3zD5I4fYY?_gl=1*1drrzbk*_ga*MjA1MzE1MDM4OS4xNzY0MDk4ODc4*_ga_0G63KLB2B0*czE3NjQxMDQwODgkbzEkZzEkdDE3NjQxMDQxOTckajU2JGwwJGgw" class="text-gray-600 hover:text-blue-600">Payment</a></li>
+                    <li><a href="https://www.appsheet.com/Account/Login?appName=SVC-Q-Proto&FullScope=False&provider=google&returnUrl=https%3A%2F%2Fwww.appsheet.com%2Fstart%2F90811d78-1165-4542-bbaa-af393ca455a5%3Fplatform%3Ddesktop#appName=SVC-QApp-721685306&vss=H4sIAAAAAAAAA52OvQ7CMBCD38VzniArYgAEC4iFdEibqxTRJlWTAlWUd-fCj1iB8Xz-bCdcLF33UTdnyFP6XBuaIZEUDvNAClJh4V0cfacgFHa6f4prXweFjFyJNxspQKbvUfl_q4A15KJtLY0lp1DMvxh-F4KF4kcW6Keo644eI9mfM2utb6ZA5sgTfqwOK7e8DdqZrTcc1-ouUL4DXt8N6VEBAAA=&view=Jobs">Service Q</a></li>
+                </ul>
             </nav>
         </header>
 
         <!-- Main Content -->
-        <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- Left Panel: Service Menu -->
-            <div class="lg:col-span-4 bg-white rounded-lg shadow-md flex flex-col h-[85vh] lg:h-auto">
-                <!-- Service Tabs -->
-                <div class="flex border-b">
-                    <button data-tab="residential" class="tab-btn flex-1 py-3 text-center text-sm font-medium hover:bg-gray-50 rounded-tl-lg tab-active transition-colors">Residential</button>
-                    <button data-tab="commercial" class="tab-btn flex-1 py-3 text-center text-sm font-medium hover:bg-gray-50 transition-colors">Commercial</button>
-                    <button data-tab="support" class="tab-btn flex-1 py-3 text-center text-sm font-medium hover:bg-gray-50 rounded-tr-lg transition-colors">Support</button>
+            <!-- Left Panel: Service Categories -->
+            <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md flex flex-col">
+                <div class="flex border-b mb-4 flex-shrink-0 text-sm overflow-x-auto">
+                    <button data-tab="residential" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg tab-active">Residential</button>
+                    <button data-tab="commercial" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg">Commercial</button>
+                    <button data-tab="support" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg">☎️ Support</button>
                 </div>
-
-                <!-- Management Toolbar -->
-                <div class="p-2 border-b bg-gray-50 flex justify-between items-center">
-                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider pl-2">Service Menu</span>
-                    <button id="toggleEditModeBtn" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded transition-colors">
-                        <i class="fa fa-pencil mr-1"></i>Manage Items
-                    </button>
-                </div>
-
-                <!-- Add New Service Button (Visible only in Edit Mode) -->
-                <div id="addNewServiceContainer" class="hidden p-2 bg-blue-50 border-b border-blue-100 text-center">
-                    <button id="addNewServiceBtn" class="w-full py-1 text-sm text-blue-600 font-semibold hover:bg-blue-100 rounded border border-blue-200 border-dashed">
-                        <i class="fa fa-plus-circle mr-1"></i>Create New Service Item
-                    </button>
-                </div>
-
-                <!-- List Container -->
-                <div id="serviceListContainer" class="flex-grow p-2 overflow-y-auto space-y-4">
-                    <!-- Dynamic Content -->
+                <div id="serviceListContainer" class="flex-grow">
+                    <!-- Service Lists will be populated by JS -->
                 </div>
             </div>
 
-            <!-- Right Panel: Job Workspace -->
-            <div id="jobDetailsPanel" class="lg:col-span-8 flex flex-col gap-6">
-                
-                <!-- 1. Customer & Unit Setup -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <div class="flex justify-between items-start mb-4 border-b pb-2">
-                        <h2 class="text-lg font-bold text-gray-800">Job Details</h2>
-                        <div class="text-right">
-                             <div class="text-xs text-gray-500">Date</div>
-                             <div class="font-medium" id="currentDateDisplay"></div>
+            <!-- Right Panel: Job Details -->
+            <div id="jobDetailsPanel" class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                <!-- Customer Info -->
+                 <div class="mb-6 border-b pb-4">
+                    <h2 class="text-xl font-bold mb-2">Customer Information</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="customerName" class="block text-sm font-medium text-gray-700">Name</label>
+                            <input type="text" id="customerName" class="job-info-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         </div>
-                    </div>
-
-                    <!-- Customer Info Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <input type="text" id="customerName" placeholder="Customer Name" class="job-info-input px-3 py-2 bg-gray-50 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <input type="text" id="customerContact" placeholder="Phone / Email" class="job-info-input px-3 py-2 bg-gray-50 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <input type="text" id="customerAddress" placeholder="Service Address" class="job-info-input px-3 py-2 bg-gray-50 border border-gray-300 rounded w-full md:col-span-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    </div>
-
-                    <!-- Unit Tabs -->
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-sm font-bold text-gray-700 uppercase">Units</h3>
-                        <div class="flex space-x-2">
-                            <button id="addUnitBtn" class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded hover:bg-blue-200"><i class="fa fa-plus"></i> Add</button>
-                            <button id="removeUnitBtn" class="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded hover:bg-red-200"><i class="fa fa-trash"></i> Remove</button>
+                        <div>
+                            <label for="customerContact" class="block text-sm font-medium text-gray-700">Contact (Phone/Email)</label>
+                            <input type="text" id="customerContact" class="job-info-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         </div>
-                    </div>
-                    <div id="unitTabs" class="flex items-center space-x-1 border-b border-gray-200 overflow-x-auto pb-0 mb-4">
-                        <!-- Unit tabs injected here -->
-                    </div>
-
-                    <!-- Unit Specific Details -->
-                    <div id="unitDetailsContainer">
-                        <!-- Active unit form injected here -->
+                        <div class="sm:col-span-2">
+                            <label for="customerAddress" class="block text-sm font-medium text-gray-700">Service Address</label>
+                            <input type="text" id="customerAddress" class="job-info-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
                     </div>
                 </div>
 
-                <!-- 2. Financial Summary -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                     <div class="flex justify-between items-center mb-4 border-b pb-2">
-                        <h2 class="text-lg font-bold text-gray-800">Cost Breakdown & Quote</h2>
-                        <button id="clearAllBtn" class="text-xs text-red-500 hover:text-red-700 font-medium">Clear All Data</button>
-                    </div>
-
-                    <!-- Dynamic Parts List -->
-                    <div class="mb-6">
-                        <h3 class="text-sm font-semibold text-gray-600 mb-2">Materials & Line Items</h3>
-                        <div id="summaryPartsList" class="space-y-2 text-sm bg-gray-50 p-3 rounded min-h-[50px]">
-                            <p class="text-gray-400 italic text-center py-2">Select services from the menu to populate items.</p>
-                        </div>
-                        <button id="addLineItemBtn" class="mt-2 text-xs text-blue-600 hover:underline font-medium">+ Add Custom Line Item</button>
-                    </div>
-
-                    <!-- Cost Inputs Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
-                        <div>
-                            <label class="block text-gray-500 text-xs mb-1">Labor Rate ($/hr)</label>
-                            <input type="number" id="laborRate" class="job-info-input w-full p-2 border rounded text-center font-medium" value="125">
-                        </div>
-                        <div>
-                            <label class="block text-gray-500 text-xs mb-1">Total Hours</label>
-                            <input type="number" step="0.5" id="summaryLaborHours" class="job-info-input w-full p-2 border rounded text-center font-medium bg-blue-50 text-blue-800">
-                        </div>
-                         <div>
-                            <label class="block text-gray-500 text-xs mb-1">Trip Charge ($)</label>
-                            <input type="number" id="tripCost" class="job-info-input w-full p-2 border rounded text-center" value="45">
-                        </div>
-                        <div>
-                            <label class="block text-gray-500 text-xs mb-1">Misc/Supplies ($)</label>
-                            <input type="number" id="consumablesCost" class="job-info-input w-full p-2 border rounded text-center" value="25">
+                <!-- Unit Management -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold">Units on Job Site</h2>
+                        <div class="flex space-x-2">
+                            <button id="addUnitBtn" class="px-3 py-1 bg-blue-500 text-white text-sm font-semibold rounded-md hover:bg-blue-600">+ Add Unit</button>
+                            <button id="removeUnitBtn" class="px-3 py-1 bg-red-500 text-white text-sm font-semibold rounded-md hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed"><i class="fa fa-trash mr-1"></i>Remove Active</button>
                         </div>
                     </div>
+                    <div id="unitTabs" class="flex items-center space-x-1 border-b border-gray-200 overflow-x-auto pb-1">
+                        <!-- Unit tabs will be dynamically inserted here -->
+                    </div>
+                </div>
 
-                    <!-- Pricing Display -->
-                    <div class="bg-slate-900 text-white p-5 rounded-xl shadow-inner">
-                        <div class="grid grid-cols-2 gap-y-2 text-sm text-slate-300 mb-4">
-                            <div>Parts Total:</div>
-                            <div class="text-right font-mono" id="totalPartsCost">$0.00</div>
-                            <div>Labor Total:</div>
-                            <div class="text-right font-mono" id="totalLaborCost">$0.00</div>
-                            <div>Fees & Misc:</div>
-                            <div class="text-right font-mono" id="totalMiscCost">$0.00</div>
+                <!-- Unit Details Container -->
+                <div id="unitDetailsContainer">
+                    <!-- Active unit details will be rendered here -->
+                </div>
+
+                <!-- Global Summary -->
+                <div class="mt-8 border-t-4 border-double border-gray-300 pt-6">
+                     <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">Job-Wide Summary & Costing</h2>
+                        <button id="clearAllBtn" class="text-sm text-red-500 hover:underline font-semibold">Clear Entire Job</button>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3">Total Materials & Line Items</h3>
+                        <div id="summaryPartsList" class="space-y-2 text-sm">
+                            <p class="text-gray-500 italic">No services selected for any unit.</p>
                         </div>
-                        <div class="border-t border-slate-700 pt-3 flex justify-between items-center mb-4">
-                            <span class="text-slate-400">Target Margin:</span>
-                            <div class="flex items-center">
-                                <input type="number" id="marginPercent" class="job-info-input w-16 p-1 text-center text-slate-900 rounded text-sm font-bold" value="50">
-                                <span class="ml-1">%</span>
+                        <button id="addLineItemBtn" class="mt-3 text-sm text-blue-500 hover:underline">+ Add Line Item</button>
+                    </div>
+                     <div class="mt-6">
+                        <h3 class="font-semibold text-lg mb-2">Additional Costs</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                            <div class="flex justify-between items-center">
+                                <label for="shippingCost">Delivery / Shipping</label>
+                                <input type="number" id="shippingCost" class="job-info-input p-1 border rounded-md w-24 text-right" value="0">
                             </div>
-                        </div>
-                        <div class="flex justify-between items-end border-t border-slate-700 pt-4">
-                            <div>
-                                <div class="text-xs text-slate-400 uppercase tracking-wide">Estimated Total</div>
-                                <div class="text-3xl font-bold text-sky-400" id="grandTotal">$0.00</div>
+                            <div class="flex justify-between items-center">
+                                <label for="rentalCost">Equipment Rental</label>
+                                <input type="number" id="rentalCost" class="job-info-input p-1 border rounded-md w-24 text-right" value="0">
                             </div>
-                            <div class="text-right">
-                                <div class="text-xs text-slate-500">Cost Basis: <span id="subTotal">$0.00</span></div>
+                            <div class="flex justify-between items-center">
+                                <label for="tripCost">Truck / Trip</label>
+                                <input type="number" id="tripCost" class="job-info-input p-1 border rounded-md w-24 text-right" value="45">
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <label for="consumablesCost">Consumables</label>
+                                <input type="number" id="consumablesCost" class="job-info-input p-1 border rounded-md w-24 text-right" value="45">
                             </div>
                         </div>
                     </div>
-
-                    <!-- Actions -->
-                    <div class="mt-6 flex flex-col md:flex-row gap-3">
-                         <select id="pdfOption" class="job-info-input px-3 py-2 bg-white border border-gray-300 rounded shadow-sm text-sm flex-1">
-                            <option value="t&m">Format: Time & Materials</option>
-                            <option value="flatRate">Format: Flat Rate Total</option>
-                            <option value="detailed">Format: Detailed Itemization</option>
+                     <div class="mt-6">
+                        <h3 class="font-semibold text-lg mb-2">Total Labor & Cost</h3>
+                        <div class="grid grid-cols-2 gap-4 items-center">
+                            <div class="flex items-center space-x-2">
+                                <label for="summaryLaborHours" class="text-sm">Total Hours:</label>
+                                <input type="number" step="0.5" id="summaryLaborHours" class="job-info-input p-1 border rounded-md w-20 text-center">
+                            </div>
+                             <div class="flex items-center space-x-2">
+                                <label for="laborRate" class="text-sm">Rate ($/hr):</label>
+                                <input type="number" id="laborRate" class="job-info-input p-1 border rounded-md w-24 text-center" value="125">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 bg-slate-800 text-white p-4 rounded-lg">
+                        <h3 class="font-semibold text-lg mb-3 text-slate-300">Billing Summary</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span>Total Parts Cost:</span><span id="totalPartsCost" class="font-mono">$0.00</span></div>
+                            <div class="flex justify-between"><span>Total Labor Cost:</span><span id="totalLaborCost" class="font-mono">$0.00</span></div>
+                             <div class="flex justify-between"><span>Additional Costs:</span><span id="totalMiscCost" class="font-mono">$0.00</span></div>
+                            <div class="flex justify-between text-base font-bold border-t border-slate-600 mt-2 pt-2"><span>Subtotal (Total Cost):</span><span id="subTotal" class="font-mono">$0.00</span></div>
+                            <hr class="border-slate-700 my-2">
+                            <div class="flex items-center justify-between">
+                                <label for="marginPercent" class="text-sm">Margin:</label>
+                                <div class="flex items-center">
+                                    <input type="number" id="marginPercent" class="job-info-input p-1 border rounded-md w-20 text-center bg-slate-200 text-black" value="50">
+                                    <span class="ml-2">%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-xl font-bold text-sky-300 mt-2 pt-2"><span>Customer Price:</span><span id="grandTotal" class="font-mono">$0.00</span></div>
+                        </div>
+                    </div>
+                     <div class="mt-6">
+                        <label for="pdfOption" class="block text-sm font-medium text-gray-700 mb-1">PDF Pricing Display</label>
+                        <select id="pdfOption" class="job-info-input block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="t&m">Show T&M Breakdown</option>
+                            <option value="flatRate">Show Flat Rate Only</option>
+                            <option value="hide">Hide All Pricing</option>
                         </select>
-                        <button id="generatePdfBtn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow transition-colors flex justify-center items-center">
-                            <i class="fa fa-file-pdf mr-2"></i> Download Quote/Invoice
+                    </div>
+                    <div class="mt-8">
+                         <button id="generatePdfBtn" class="w-full py-2 px-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-200">
+                            <i class="fa fa-file-pdf mr-2"></i>Generate PDF Report
                         </button>
                     </div>
                 </div>
@@ -221,743 +206,665 @@
         </main>
     </div>
 
-    <!-- ================= MODALS ================= -->
-
     <!-- Photo Preview Modal -->
-    <div id="photoModal" class="fixed inset-0 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white rounded-lg shadow-2xl max-w-2xl w-full relative overflow-hidden">
-            <button id="closePhotoModalBtn" class="absolute top-2 right-2 bg-gray-800 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-black">&times;</button>
-            <img id="modalImage" src="" alt="Preview" class="w-full h-auto max-h-[80vh] object-contain bg-black">
+    <div id="photoModal" class="fixed inset-0 w-full h-full flex items-center justify-center hidden z-50">
+        <div class="bg-white p-4 rounded-lg shadow-lg max-w-xl w-full relative">
+            <button id="closeModalBtn" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
+            <img id="modalImage" src="" alt="Photo Preview" class="w-full h-auto rounded">
         </div>
     </div>
     
-    <input type="file" id="photoInput" class="hidden" accept="image/*" capture="environment">
-
-    <!-- Service Editor Modal (New Feature) -->
-    <div id="serviceEditorModal" class="fixed inset-0 flex items-center justify-center hidden z-50 p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full flex flex-col max-h-[90vh]">
-            <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-                <h3 class="font-bold text-lg text-gray-800" id="editorModalTitle">Edit Service Item</h3>
-                <button id="closeEditorModalBtn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-            </div>
-            
-            <div class="p-5 overflow-y-auto">
-                <input type="hidden" id="editServiceKey">
-                
-                <div class="space-y-4">
-                    <!-- Title -->
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Service Title</label>
-                        <input type="text" id="editServiceTitle" class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Capacitor Replacement">
-                    </div>
-
-                    <!-- Category & Subcategory -->
-                    <div class="grid grid-cols-2 gap-3">
-                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
-                            <select id="editServiceCategory" class="w-full border border-gray-300 p-2 rounded bg-white">
-                                <option value="residential">Residential</option>
-                                <option value="commercial">Commercial</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Sub-Category</label>
-                            <input type="text" id="editServiceSubCat" list="subCatOptions" class="w-full border border-gray-300 p-2 rounded" placeholder="e.g. Maintenance">
-                            <datalist id="subCatOptions">
-                                <option value="Maintenance">
-                                <option value="Major Components">
-                                <option value="Electrical & Controls">
-                                <option value="Airflow & IAQ">
-                                <option value="Refrigeration">
-                            </datalist>
-                        </div>
-                    </div>
-
-                    <!-- Labor -->
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Default Labor Hours</label>
-                        <input type="number" id="editServiceLabor" step="0.25" class="w-full border border-gray-300 p-2 rounded" placeholder="1.0">
-                    </div>
-
-                    <!-- Parts Editor -->
-                    <div class="border-t pt-4 mt-2">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Included Parts / Materials</label>
-                        <div id="editPartsList" class="space-y-2 mb-3">
-                            <!-- Dynamic Parts Rows -->
-                        </div>
-                        <button type="button" id="addPartToServiceBtn" class="text-xs text-blue-600 font-semibold hover:bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                            + Add Material
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end space-x-3">
-                <button id="cancelEditBtn" class="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded text-sm font-medium">Cancel</button>
-                <button id="saveServiceBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-bold shadow">Save Changes</button>
-            </div>
-        </div>
-    </div>
+    <input type="file" id="photoInput" class="hidden" accept="image/*" capture="camera">
 
     <script>
+        // Ensure jsPDF is loaded
         const { jsPDF } = window.jspdf;
 
-        // --- DEFAULT DATA (Fallback) ---
-        const defaultJobData = {
+        // ===================================================================================
+        // --- CONFIGURATION & DATA ---
+        // ===================================================================================
+
+        const jobData = {
             acMaintenance: { title: 'A/C Maintenance / No Cool', parts: [{ name: 'Air Filter (16x25x1)', qty: 1, price: 15 }, { name: 'Contactor (2-Pole 30A)', qty: 1, price: 25 }, { name: 'Dual Run Capacitor (45/5 MFD)', qty: 1, price: 30 }, { name: 'Evaporator Coil Cleaner', qty: 1, price: 20 }], laborHours: 1.5 },
             furnaceMaintenance: { title: 'Furnace Maintenance / No Heat', parts: [{ name: 'Air Filter (16x25x1)', qty: 1, price: 15 }, { name: 'Hot Surface Igniter', qty: 1, price: 45 }, { name: 'Flame Sensor', qty: 1, price: 20 }, { name: 'Pressure Switch', qty: 1, price: 50 }], laborHours: 1.5 },
             refrigerantRecharge: { title: 'Refrigerant Recharge', parts: [{ name: 'R-410A Refrigerant (lbs)', qty: 1, price: 25 }, { name: 'Schrader Core', qty: 1, price: 2 }, { name: 'UV Dye & Injector', qty: 1, price: 15 }, { name: 'Leak Sealant', qty: 1, price: 30 }], laborHours: 2.0 },
             drainLine: { title: 'Drain Line Clearing', parts: [{ name: 'CO2 Cartridge', qty: 2, price: 5 }, { name: 'Drain Tablets', qty: 1, price: 5 }, { name: 'PVC Union 3/4"', qty: 1, price: 3 }], laborHours: 1.0 },
+            coilCleaning: { title: 'Evaporator Coil Cleaning', parts: [{ name: 'Foaming Coil Cleaner', qty: 1, price: 20 }, { name: 'Condensate Pan Tablets', qty: 1, price: 5 }], laborHours: 1.5 },
+            condenserCleaning: { title: 'Condenser Coil Cleaning', parts: [{ name: 'Non-Acidic Coil Cleaner', qty: 1, price: 20 }, { name: 'Finned Comb', qty: 1, price: 10 }], laborHours: 1.0 },
+            flameSensor: { title: 'Flame Sensor Cleaning/Replacement', parts: [{ name: 'Flame Sensor', qty: 1, price: 20 }, { name: 'Emery Cloth', qty: 1, price: 1 }], laborHours: 0.5 },
+            blowerWheel: { title: 'Blower Wheel Cleaning/Replacement', parts: [{ name: 'OEM Blower Wheel', qty: 1, price: 150 }, { name: 'Set Screw', qty: 1, price: 1 }], laborHours: 2.0 },
+            burnerCleaning: { title: 'Burner Cleaning / Adjustment', parts: [{ name: 'Wire Brush', qty: 1, price: 5 }, { name: 'Gas Manifold Seal', qty: 1, price: 10 }], laborHours: 1.5 },
+            ductworkRepair: { title: 'Ductwork Leak Repair', parts: [{ name: 'Foil Tape', qty: 1, price: 15 }, { name: 'Mastic Sealant', qty: 1, price: 20 }], laborHours: 2.0 },
+            lineSetRepair: { title: 'Line Set Leak Repair', parts: [{ name: 'Brazing Rods (Silphos)', qty: 2, price: 5 }, { name: 'Nitrogen Tank', qty: 1, price: 30 }, { name: 'Insulation Wrap (Armaflex)', qty: 1, price: 10 }], laborHours: 2.5 },
+            uvLight: { title: 'UV Light Replacement', parts: [{ name: 'UV Bulb (16")', qty: 1, price: 80 }, { name: 'Ballast', qty: 1, price: 50 }], laborHours: 0.5 },
+            blowerMotor: { title: 'Blower Motor Replacement', parts: [{ name: 'Universal Blower Motor (1/2 HP)', qty: 1, price: 250 }, { name: 'Run Capacitor (10 MFD)', qty: 1, price: 15 }, { name: 'Mounting Bracket', qty: 1, price: 10 }], laborHours: 2.5 },
+            condenserFanMotor: { title: 'Condenser Fan Motor', parts: [{ name: 'Condenser Fan Motor (1/4 HP)', qty: 1, price: 180 }, { name: 'Fan Blade', qty: 1, price: 40 }, { name: 'Run Capacitor (7.5 MFD)', qty: 1, price: 15 }, { name: 'New Mounting Bolts', qty: 4, price: 1 }], laborHours: 1.5 },
+            ignitor: { title: 'Ignitor Replacement', parts: [{ name: 'Hot Surface Ignitor', qty: 1, price: 45 }, { name: 'Ceramic Wire Connectors', qty: 2, price: 1 }], laborHours: 1.0 },
+            gasValve: { title: 'Gas Valve Replacement', parts: [{ name: 'OEM Gas Valve', qty: 1, price: 150 }, { name: 'Thread Sealant', qty: 1, price: 5 }], laborHours: 2.0 },
+            reversingValve: { title: 'Reversing Valve Replacement', parts: [{ name: 'Reversing Valve (OEM)', qty: 1, price: 120 }, { name: 'Solenoid Coil', qty: 1, price: 30 }, { name: 'Filter Drier', qty: 1, price: 15 }], laborHours: 4.0 },
+            txv: { title: 'TXV Replacement', parts: [{ name: 'TXV (R-410A, 3 Ton)', qty: 1, price: 100 }, { name: 'Sensing Bulb Strap', qty: 1, price: 2 }, { name: 'Filter Drier', qty: 1, price: 15 }], laborHours: 3.5 },
+            crackedHeatExchanger: { title: 'Cracked Heat Exchanger', parts: [{ name: 'Heat Exchanger Kit (OEM)', qty: 1, price: 800 }, { name: 'High-Temp Sealant', qty: 1, price: 15 }, { name: 'Rollout Switch', qty: 1, price: 20 }], laborHours: 5.0 },
             capacitorReplacement: { title: 'Capacitor Replacement', parts: [{ name: 'Dual Run Capacitor (e.g., 40/5 MFD)', qty: 1, price: 30 }, { name: 'Mounting Strap', qty: 1, price: 2 }], laborHours: 0.5 },
             contactor: { title: 'Contactor Replacement', parts: [{ name: '2-Pole Contactor (24V coil)', qty: 1, price: 25 }, { name: 'Wire Nuts / Spade Terminals', qty: 4, price: 1 }], laborHours: 0.5 },
             thermostatReplacement: { title: 'Thermostat Install', parts: [{ name: 'Smart Thermostat', qty: 1, price: 150 }, { name: 'Wall Anchors & Screws', qty: 2, price: 1 }, { name: 'Common Wire Adapter', qty: 1, price: 25 }], laborHours: 1.0 },
-            blowerMotor: { title: 'Blower Motor Replacement', parts: [{ name: 'Universal Blower Motor (1/2 HP)', qty: 1, price: 250 }, { name: 'Run Capacitor (10 MFD)', qty: 1, price: 15 }, { name: 'Mounting Bracket', qty: 1, price: 10 }], laborHours: 2.5 }
+            circuitBoard: { title: 'Circuit Board Replacement', parts: [{ name: 'OEM Control Board', qty: 1, price: 300 }, { name: '3A Blade Fuse', qty: 2, price: 1 }], laborHours: 1.5 },
+            defrostBoard: { title: 'Defrost Control Board', parts: [{ name: 'Defrost Board (OEM)', qty: 1, price: 120 }, { name: 'Ambient Sensor', qty: 1, price: 15 }], laborHours: 1.5 },
+            pressureSwitch: { title: 'Pressure Switch Replacement', parts: [{ name: 'OEM Pressure Switch', qty: 1, price: 50 }, { name: 'Silicone Tubing (1/4")', qty: 1, price: 2 }], laborHours: 0.5 },
+            highLimitSwitch: { title: 'High-Limit Switch Replacement', parts: [{ name: 'Limit Switch (L180-30F)', qty: 1, price: 20 }, { name: 'Mounting Screws', qty: 2, price: 1 }], laborHours: 0.5 },
+            floatSwitch: { title: 'Float Switch Install/Replacement', parts: [{ name: 'SS1 Float Switch', qty: 1, price: 15 }, { name: 'PVC Tee (3/4")', qty: 1, price: 2 }, { name: 'Wire Nuts', qty: 2, price: 1 }], laborHours: 0.5 },
+            hardStartKit: { title: 'Hard Start Kit Install', parts: [{ name: 'Hard Start Kit (5-2-1)', qty: 1, price: 40 }, { name: 'Mounting Strap / Zip Tie', qty: 1, price: 1 }], laborHours: 0.5 },
+            lowVoltageShort: { title: 'Low Voltage Short Repair', parts: [{ name: '3A Fuse (ATC style)', qty: 2, price: 1 }, { name: '18/5 Thermostat Wire (ft)', qty: 5, price: 1 }, { name: 'Zip Ties', qty: 10, price: 1 }], laborHours: 1.5 },
+            wireRepair: { title: 'Burnt/Loose Wire Repair', parts: [{ name: '12-gauge Wire (ft)', qty: 2, price: 2 }, { name: 'Spade Connectors', qty: 4, price: 1 }, { name: 'Heat Shrink Tubing', qty: 1, price: 2 }], laborHours: 1.0 },
+            zoneDamper: { title: 'Zone Damper Repair', parts: [{ name: 'Motorized Damper Actuator', qty: 1, price: 150 }, { name: 'Control Board Relay', qty: 1, price: 30 }], laborHours: 2.0 },
+            mervFilterChange: { title: 'MERV Filter Change/Retrofit', parts: [{ name: 'MERV 13 Pleated Filters (24x24x4)', qty: 8, price: 25 }, { name: 'Filter Rack Gasketing', qty: 1, price: 5 }], laborHours: 1.5 },
+            insulationFailure: { title: 'Insulation Failure (Duct/Cabinet)', parts: [{ name: 'Duct Liner (Fiberglass)', qty: 1, price: 50 }, { name: 'Contact Adhesive', qty: 1, price: 15 }], laborHours: 3.0 },
+            crankcaseHeater: { title: 'Crankcase Heater Failure', parts: [{ name: 'Wraparound Crankcase Heater', qty: 1, price: 40 }, { name: 'Thermostat/Temp Switch', qty: 1, price: 15 }], laborHours: 1.5 },
+            freezestat: { title: 'Freezestat Trip / Error', parts: [{ name: 'Capillary-style Freezestat', qty: 1, price: 35 }, { name: 'Control Relay', qty: 1, price: 15 }], laborHours: 1.0 },
+            inducerMotor: { title: 'Inducer Motor Replacement', parts: [{ name: 'Inducer Assembly', qty: 1, price: 250 }, { name: 'Gasket/Seal', qty: 1, price: 10 }], laborHours: 2.0 },
+            walkInNotCooling: { title: 'Walk-in Not Cooling', parts: [{name: 'TXV', qty: 1, price: 120}, {name: 'Filter Drier', qty: 1, price: 25}, {name: 'Solenoid Coil', qty: 1, price: 40}, {name: 'R-448A', qty: 1, price: 30}], laborHours: 3.5 },
+            iceMachineClean: { title: 'Ice Machine Cleaning', parts: [{name: 'Ice Machine Cleaner (Nickel-Safe)', qty: 1, price: 25}, {name: 'Sanitizer', qty: 1, price: 20}, {name: 'Water Filters', qty: 1, price: 50}], laborHours: 2.0 },
+            iceMachineHarvest: { title: 'Ice Machine Harvest Fault', parts: [{name: 'Harvest Assist Solenoid', qty: 1, price: 75}, {name: 'Curtain Switch', qty: 1, price: 30}, {name: 'Control Board', qty: 1, price: 250}], laborHours: 3.0 },
         };
-
-        const defaultServiceCategories = {
+        
+        const serviceCategories = {
             residential: {
-                "Maintenance": ["acMaintenance", "furnaceMaintenance", "refrigerantRecharge", "drainLine"],
-                "Electrical & Controls": ["capacitorReplacement", "contactor", "thermostatReplacement"],
-                "Major Components": ["blowerMotor"]
+                "Maintenance": ["acMaintenance", "furnaceMaintenance", "refrigerantRecharge", "drainLine", "coilCleaning", "condenserCleaning", "flameSensor", "blowerWheel", "burnerCleaning"],
+                "Major Components": ["blowerMotor", "condenserFanMotor", "inducerMotor", "gasValve", "reversingValve", "txv", "crackedHeatExchanger"],
+                "Electrical & Controls": ["capacitorReplacement", "contactor", "ignitor", "thermostatReplacement", "circuitBoard", "defrostBoard", "pressureSwitch", "highLimitSwitch", "floatSwitch", "hardStartKit", "lowVoltageShort", "wireRepair"],
+                "Airflow & IAQ": ["ductworkRepair", "zoneDamper", "uvLight", "mervFilterChange", "insulationFailure"]
             },
             commercial: {
-                "Maintenance": ["acMaintenance", "furnaceMaintenance", "refrigerantRecharge"],
-                "Electrical & Controls": ["capacitorReplacement", "contactor"]
+                "Maintenance": ["acMaintenance", "furnaceMaintenance", "refrigerantRecharge", "drainLine", "coilCleaning", "condenserCleaning", "flameSensor", "blowerWheel", "burnerCleaning"],
+                "Major Components": ["blowerMotor", "condenserFanMotor", "inducerMotor", "gasValve", "reversingValve", "txv", "crackedHeatExchanger"],
+                "Electrical & Controls": ["capacitorReplacement", "contactor", "ignitor", "thermostatReplacement", "circuitBoard", "defrostBoard", "pressureSwitch", "highLimitSwitch", "floatSwitch", "hardStartKit", "lowVoltageShort", "wireRepair"],
+                "Airflow & IAQ": ["ductworkRepair", "zoneDamper", "uvLight", "mervFilterChange", "insulationFailure"],
+                "Refrigeration": ["walkInNotCooling", "iceMachineClean", "iceMachineHarvest"]
             },
             support: {}
         };
-
-        // --- STATE MANAGEMENT ---
-        let jobData = {};
-        let serviceCategories = {};
-        let units = [];
-        let activeUnitId = null;
-        let laborManuallySet = false;
-        let isEditMode = false;
-        let currentTab = 'residential';
-
-        // --- DOM ELEMENTS ---
-        const els = {
-            serviceListContainer: document.getElementById('serviceListContainer'),
-            unitTabs: document.getElementById('unitTabs'),
-            unitDetailsContainer: document.getElementById('unitDetailsContainer'),
-            summaryPartsList: document.getElementById('summaryPartsList'),
-            photoModal: document.getElementById('photoModal'),
-            serviceEditorModal: document.getElementById('serviceEditorModal'),
-            toggleEditModeBtn: document.getElementById('toggleEditModeBtn'),
-            addNewServiceContainer: document.getElementById('addNewServiceContainer'),
-            inputs: {
-                laborRate: document.getElementById('laborRate'),
-                margin: document.getElementById('marginPercent'),
-                laborHours: document.getElementById('summaryLaborHours'),
-                trip: document.getElementById('tripCost'),
-                consumables: document.getElementById('consumablesCost'),
-                date: document.getElementById('currentDateDisplay')
-            },
-            totals: {
-                parts: document.getElementById('totalPartsCost'),
-                labor: document.getElementById('totalLaborCost'),
-                misc: document.getElementById('totalMiscCost'),
-                sub: document.getElementById('subTotal'),
-                grand: document.getElementById('grandTotal')
-            }
-        };
-
-        // --- INITIALIZATION ---
-        function init() {
-            // Set Date
-            const now = new Date();
-            els.inputs.date.textContent = now.toLocaleDateString();
-
-            loadData();
-            
-            if (units.length === 0) addUnit();
-            else if (activeUnitId) setActiveUnit(activeUnitId);
-            else setActiveUnit(units[0].id);
-
-            renderServiceList(currentTab);
-            updateGlobalSummary();
-        }
-
-        function loadData() {
-            // Load Services configuration
-            const storedJobData = localStorage.getItem('hvac_custom_jobData');
-            const storedCats = localStorage.getItem('hvac_custom_categories');
-            
-            if (storedJobData && storedCats) {
-                jobData = JSON.parse(storedJobData);
-                serviceCategories = JSON.parse(storedCats);
-            } else {
-                // Clone defaults deeply
-                jobData = JSON.parse(JSON.stringify(defaultJobData));
-                serviceCategories = JSON.parse(JSON.stringify(defaultServiceCategories));
-            }
-
-            // Load Job State
-            const savedUnits = localStorage.getItem('hvac_current_units');
-            if (savedUnits) {
-                try {
-                    const parsed = JSON.parse(savedUnits);
-                    // Convert stored job arrays back to Sets
-                    units = parsed.map(u => ({...u, selectedJobs: new Set(u.selectedJobs)}));
-                } catch(e) { units = []; }
-            }
-
-            // Load Inputs
-            const savedInputs = localStorage.getItem('hvac_inputs');
-            if (savedInputs) {
-                const vals = JSON.parse(savedInputs);
-                if(vals.laborRate) els.inputs.laborRate.value = vals.laborRate;
-                if(vals.margin) els.inputs.margin.value = vals.margin;
-                if(vals.trip) els.inputs.trip.value = vals.trip;
-                if(vals.consumables) els.inputs.consumables.value = vals.consumables;
-                if(vals.customerName) document.getElementById('customerName').value = vals.customerName;
-                if(vals.customerContact) document.getElementById('customerContact').value = vals.customerContact;
-                if(vals.customerAddress) document.getElementById('customerAddress').value = vals.customerAddress;
-            }
-        }
-
-        function saveData() {
-            // Save Configuration
-            localStorage.setItem('hvac_custom_jobData', JSON.stringify(jobData));
-            localStorage.setItem('hvac_custom_categories', JSON.stringify(serviceCategories));
-            
-            // Save Job State
-            const unitsToSave = units.map(u => ({...u, selectedJobs: Array.from(u.selectedJobs)}));
-            localStorage.setItem('hvac_current_units', JSON.stringify(unitsToSave));
-
-            // Save Inputs
-            const inputsToSave = {
-                laborRate: els.inputs.laborRate.value,
-                margin: els.inputs.margin.value,
-                trip: els.inputs.trip.value,
-                consumables: els.inputs.consumables.value,
-                customerName: document.getElementById('customerName').value,
-                customerContact: document.getElementById('customerContact').value,
-                customerAddress: document.getElementById('customerAddress').value,
-            };
-            localStorage.setItem('hvac_inputs', JSON.stringify(inputsToSave));
-        }
-
-        function resetToDefaults() {
-            if(confirm("Reset all custom services, prices, and current job data? This cannot be undone.")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        // --- UNIT LOGIC ---
-        function createUnit(id) {
-            return { 
-                id: id, 
-                name: `Unit ${units.length + 1}`, 
-                type: 'RTU', brand: '', model: '', serial: '', notes: '', photos: [], 
-                selectedJobs: new Set() 
-            };
-        }
-
-        function addUnit() {
-            const id = Date.now();
-            units.push(createUnit(id));
-            setActiveUnit(id);
-            saveData();
-        }
-
-        function removeActiveUnit() {
-            if (units.length <= 1) return alert("You must have at least one unit.");
-            if (!confirm("Delete this unit and its data?")) return;
-            
-            const idx = units.findIndex(u => u.id === activeUnitId);
-            units.splice(idx, 1);
-            setActiveUnit(units[Math.max(0, idx - 1)].id);
-            saveData();
-        }
-
-        function setActiveUnit(id) {
-            activeUnitId = id;
-            renderUnitTabs();
-            renderUnitDetails();
-            renderServiceList(currentTab); // Re-render to update checkbox states
-            laborManuallySet = false;
-            updateGlobalSummary();
-        }
-
-        function getActiveUnit() {
-            return units.find(u => u.id === activeUnitId);
-        }
-
-        // --- RENDERERS ---
-        function renderUnitTabs() {
-            els.unitTabs.innerHTML = '';
-            units.forEach(u => {
-                const btn = document.createElement('button');
-                btn.className = `px-4 py-2 text-sm font-medium rounded-t border-t border-l border-r whitespace-nowrap ${u.id === activeUnitId ? 'unit-tab-active' : 'bg-gray-100 text-gray-600'}`;
-                btn.textContent = u.name;
-                btn.onclick = () => setActiveUnit(u.id);
-                els.unitTabs.appendChild(btn);
-            });
-        }
-
-        function renderUnitDetails() {
-            const u = getActiveUnit();
-            if(!u) return;
-
-            els.unitDetailsContainer.innerHTML = `
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <input type="text" value="${u.name}" data-field="name" class="unit-input w-full border p-2 rounded text-sm font-bold bg-blue-50" placeholder="Unit Name">
-                    <select data-field="type" class="unit-input w-full border p-2 rounded text-sm">
-                        ${["RTU", "Split System", "Furnace", "Boiler", "Heat Pump", "Mini-Split", "Refrigeration"].map(t => `<option ${u.type===t?'selected':''}>${t}</option>`).join('')}
-                    </select>
-                    <input type="text" value="${u.brand}" data-field="brand" class="unit-input w-full border p-2 rounded text-sm" placeholder="Brand">
-                    <input type="text" value="${u.model}" data-field="model" class="unit-input w-full border p-2 rounded text-sm" placeholder="Model #">
-                    <input type="text" value="${u.serial}" data-field="serial" class="unit-input w-full border p-2 rounded text-sm col-span-2" placeholder="Serial #">
-                </div>
-                <textarea data-field="notes" class="unit-input w-full border p-2 rounded text-sm h-20 mb-3" placeholder="Diagnosis notes...">${u.notes}</textarea>
-                
-                <div class="flex flex-wrap gap-2 mb-2" id="photoGallery">
-                    ${u.photos.map((src, i) => `
-                        <div class="relative w-16 h-16 group">
-                            <img src="${src}" class="w-full h-full object-cover rounded cursor-pointer border border-gray-300" onclick="openPhotoModal('${src}')">
-                            <button onclick="removePhoto(${i})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
-                        </div>
-                    `).join('')}
-                    <button onclick="document.getElementById('photoInput').click()" class="w-16 h-16 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-500 transition-colors">
-                        <i class="fa fa-camera"></i>
-                        <span class="text-[10px]">Add</span>
-                    </button>
-                </div>
-            `;
-            
-            // Bind inputs
-            els.unitDetailsContainer.querySelectorAll('.unit-input').forEach(input => {
-                input.addEventListener('input', (e) => {
-                    u[e.target.dataset.field] = e.target.value;
-                    if(e.target.dataset.field === 'name') renderUnitTabs();
-                    saveData();
-                });
-            });
-        }
-
-        // --- SERVICE MENU & EDITING ---
-        function renderServiceList(category) {
-            currentTab = category;
-            
-            // Tab Styles
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.toggle('tab-active', btn.dataset.tab === category);
-                btn.classList.toggle('text-gray-500', btn.dataset.tab !== category);
-                btn.classList.toggle('bg-gray-50', btn.dataset.tab !== category);
-            });
-
-            els.serviceListContainer.innerHTML = '';
-            const cats = serviceCategories[category];
-            const u = getActiveUnit();
-
-            // Toggle Edit Mode Class on Container
-            els.serviceListContainer.classList.toggle('edit-mode-active', isEditMode);
-
-            if(!cats || Object.keys(cats).length === 0) {
-                els.serviceListContainer.innerHTML = `<div class="text-center text-gray-400 text-sm mt-10">No items found.<br>${isEditMode ? 'Click "Create New Service Item" above.' : ''}</div>`;
-                return;
-            }
-
-            Object.keys(cats).forEach(subCat => {
-                const group = document.createElement('div');
-                group.className = 'mb-4';
-                group.innerHTML = `<h4 class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 border-b pb-1">${subCat}</h4>`;
-                
-                const ul = document.createElement('ul');
-                ul.className = 'space-y-1';
-                
-                cats[subCat].forEach(key => {
-                    if(!jobData[key]) return; // Skip if data corrupt
-                    
-                    const li = document.createElement('li');
-                    li.className = 'relative group';
-                    const isChecked = u ? u.selectedJobs.has(key) : false;
-                    
-                    li.innerHTML = `
-                        <div class="flex items-center">
-                            <!-- Edit Controls (Left Side) -->
-                            <div class="edit-mode-btn space-x-1 mr-2">
-                                <button onclick="editService('${key}', '${category}', '${subCat}')" class="text-blue-500 hover:bg-blue-100 p-1 rounded"><i class="fa fa-pencil"></i></button>
-                                <button onclick="deleteService('${key}', '${category}', '${subCat}')" class="text-red-500 hover:bg-red-100 p-1 rounded"><i class="fa fa-trash"></i></button>
-                            </div>
-
-                            <!-- Main Item -->
-                            <input type="checkbox" id="cb-${key}" class="hidden service-checkbox" ${isChecked ? 'checked' : ''} onchange="toggleService('${key}')">
-                            <label for="cb-${key}" class="flex-grow flex items-center justify-between p-2 rounded cursor-pointer hover:bg-gray-100 transition-colors border border-transparent">
-                                <span class="text-sm text-gray-700 font-medium">${jobData[key].title}</span>
-                                <i class="fa fa-check-circle text-blue-600 opacity-0 check-icon transition-opacity service-select-indicator"></i>
-                            </label>
-                        </div>
-                    `;
-                    ul.appendChild(li);
-                });
-                group.appendChild(ul);
-                els.serviceListContainer.appendChild(group);
-            });
-        }
-
-        function toggleService(key) {
-            const u = getActiveUnit();
-            if(!u) return alert("Select or create a unit first.");
-            
-            if(u.selectedJobs.has(key)) u.selectedJobs.delete(key);
-            else u.selectedJobs.add(key);
-            
-            saveData();
-            updateGlobalSummary();
-        }
-
-        function toggleEditMode() {
-            isEditMode = !isEditMode;
-            els.toggleEditModeBtn.classList.toggle('bg-blue-200', isEditMode);
-            els.toggleEditModeBtn.classList.toggle('text-blue-800', isEditMode);
-            els.toggleEditModeBtn.innerHTML = isEditMode ? '<i class="fa fa-check mr-1"></i> Done' : '<i class="fa fa-pencil mr-1"></i> Manage Items';
-            
-            els.addNewServiceContainer.classList.toggle('hidden', !isEditMode);
-            
-            renderServiceList(currentTab);
-        }
-
-        // --- SERVICE EDITOR ---
         
-        function openServiceEditor(key = null, category = 'residential', subCat = '') {
-            const isNew = !key;
-            const data = isNew ? { title: '', laborHours: 1.0, parts: [] } : JSON.parse(JSON.stringify(jobData[key]));
+        const unitTypes = ["RTU", "Air Handler", "Furnace", "Condensing Unit", "Boiler", "Walk-in Cooler", "Walk-in Freezer", "Ice Machine", "Other"];
+        const brandNames = ["Carrier", "Trane", "Lennox", "Goodman", "Rheem", "York", "American Standard", "Bryant", "Payne", "Amana", "Daikin", "Mitsubishi", "Fujitsu", "LG", "Samsung", "Other"];
+
+        // ===================================================================================
+        // --- APPLICATION LOGIC ---
+        // ===================================================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            let units = [];
+            let activeUnitId = null;
+            let laborManuallySet = false;
+
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const serviceListContainer = document.getElementById('serviceListContainer');
+            const addUnitBtn = document.getElementById('addUnitBtn');
+            const removeUnitBtn = document.getElementById('removeUnitBtn');
+            const unitTabs = document.getElementById('unitTabs');
+            const unitDetailsContainer = document.getElementById('unitDetailsContainer');
+            const summaryPartsList = document.getElementById('summaryPartsList');
+            const addLineItemBtn = document.getElementById('addLineItemBtn');
+            const summaryLaborHours = document.getElementById('summaryLaborHours');
+            const laborRateInput = document.getElementById('laborRate');
+            const totalPartsCostEl = document.getElementById('totalPartsCost');
+            const totalLaborCostEl = document.getElementById('totalLaborCost');
+            const totalMiscCostEl = document.getElementById('totalMiscCost');
+            const subTotalEl = document.getElementById('subTotal');
+            const marginPercentInput = document.getElementById('marginPercent');
+            const grandTotalEl = document.getElementById('grandTotal');
+            const pdfOptionSelect = document.getElementById('pdfOption');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            const photoInput = document.getElementById('photoInput');
+            const photoModal = document.getElementById('photoModal');
+            const modalImage = document.getElementById('modalImage');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const generatePdfBtn = document.getElementById('generatePdfBtn');
             
-            document.getElementById('editorModalTitle').textContent = isNew ? 'Create New Service' : 'Edit Service Item';
-            document.getElementById('editServiceKey').value = key || '';
-            document.getElementById('editServiceTitle').value = data.title;
-            document.getElementById('editServiceLabor').value = data.laborHours;
-            document.getElementById('editServiceCategory').value = category;
-            document.getElementById('editServiceSubCat').value = subCat;
-
-            // Render Parts List in Editor
-            const partsContainer = document.getElementById('editPartsList');
-            partsContainer.innerHTML = '';
-            
-            // Helper to add part row
-            const addPartRow = (p = {name:'', qty:1, price:0}) => {
-                const div = document.createElement('div');
-                div.className = 'flex gap-2 items-center';
-                div.innerHTML = `
-                    <input type="text" placeholder="Part Name" class="part-name-input flex-grow border p-1 rounded text-sm" value="${p.name}">
-                    <input type="number" placeholder="Qty" class="part-qty-input w-12 border p-1 rounded text-sm text-center" value="${p.qty}">
-                    <input type="number" placeholder="$" class="part-price-input w-16 border p-1 rounded text-sm text-right" value="${p.price}">
-                    <button type="button" class="text-red-400 hover:text-red-600" onclick="this.parentElement.remove()"><i class="fa fa-times"></i></button>
-                `;
-                partsContainer.appendChild(div);
-            };
-
-            data.parts.forEach(addPartRow);
-            
-            // Bind Add Button inside modal
-            document.getElementById('addPartToServiceBtn').onclick = () => addPartRow();
-
-            // Show Modal
-            els.serviceEditorModal.classList.remove('hidden');
-        }
-
-        function saveServiceFromEditor() {
-            const keyInput = document.getElementById('editServiceKey').value;
-            const newTitle = document.getElementById('editServiceTitle').value;
-            const newCat = document.getElementById('editServiceCategory').value;
-            const newSubCat = document.getElementById('editServiceSubCat').value || 'General';
-            const newLabor = parseFloat(document.getElementById('editServiceLabor').value) || 0;
-
-            if(!newTitle) return alert("Title is required");
-
-            // Harvest Parts
-            const newParts = [];
-            document.querySelectorAll('#editPartsList > div').forEach(row => {
-                const name = row.querySelector('.part-name-input').value;
-                if(name) {
-                    newParts.push({
-                        name: name,
-                        qty: parseFloat(row.querySelector('.part-qty-input').value) || 1,
-                        price: parseFloat(row.querySelector('.part-price-input').value) || 0
-                    });
-                }
-            });
-
-            const serviceData = {
-                title: newTitle,
-                laborHours: newLabor,
-                parts: newParts
-            };
-
-            const key = keyInput || `custom_${Date.now()}`;
-
-            // 1. Update Job Data
-            jobData[key] = serviceData;
-
-            // 2. Update Categories
-            // If editing existing, we might need to remove it from old location if category changed? 
-            // For simplicity in this version, we'll just ensure it exists in the target category.
-            // If it was somewhere else, we're not aggressively cleaning it up to avoid complexity, 
-            // but we will ensure it is in the NEW array.
-            
-            if (!serviceCategories[newCat][newSubCat]) {
-                serviceCategories[newCat][newSubCat] = [];
-            }
-            if (!serviceCategories[newCat][newSubCat].includes(key)) {
-                serviceCategories[newCat][newSubCat].push(key);
+            function createUnit(id, name) {
+                return { id, name, type: '', brand: '', model: '', serial: '', notes: '', photos: [], selectedJobs: new Set() };
             }
 
-            saveData();
-            els.serviceEditorModal.classList.add('hidden');
-            renderServiceList(currentTab); // Re-render current view
-            updateGlobalSummary(); // In case we edited something currently selected
-        }
-
-        function deleteService(key, cat, subCat) {
-            if(!confirm("Permanently delete this service item?")) return;
-            
-            // Remove from category list
-            const idx = serviceCategories[cat][subCat].indexOf(key);
-            if(idx > -1) serviceCategories[cat][subCat].splice(idx, 1);
-            
-            // Clean up empty subcategories
-            if(serviceCategories[cat][subCat].length === 0) delete serviceCategories[cat][subCat];
-
-            // Note: We keep the data in jobData incase historical records reference it, 
-            // or just delete it. Let's delete it to keep storage clean.
-            delete jobData[key];
-
-            // Remove from any active units
-            units.forEach(u => u.selectedJobs.delete(key));
-
-            saveData();
-            renderServiceList(currentTab);
-            updateGlobalSummary();
-        }
-
-        window.editService = openServiceEditor;
-        window.deleteService = deleteService;
-
-        // --- GLOBAL SUMMARY ---
-        function updateGlobalSummary() {
-            let totalHrs = 0;
-            const aggParts = new Map();
-
-            units.forEach(u => {
-                u.selectedJobs.forEach(key => {
-                    const job = jobData[key];
-                    if(!job) return;
-                    totalHrs += job.laborHours;
-                    job.parts.forEach(p => {
-                        if(aggParts.has(p.name)) {
-                            const ex = aggParts.get(p.name);
-                            ex.qty += p.qty;
-                        } else {
-                            aggParts.set(p.name, {...p});
-                        }
-                    });
-                });
-            });
-
-            // Update Labor Input if not manual
-            if(!laborManuallySet) els.inputs.laborHours.value = totalHrs;
-
-            // Render Parts List
-            els.summaryPartsList.innerHTML = '';
-            let partsTotal = 0;
-
-            if(aggParts.size === 0) {
-                 els.summaryPartsList.innerHTML = `<p class="text-gray-400 italic text-center py-2">No items selected.</p>`;
-            } else {
-                aggParts.forEach((p) => addLineItemDOM(p.name, p.qty, p.price));
-            }
-            
-            calculateFinancials();
-        }
-
-        function addLineItemDOM(name = '', qty = 1, price = 0) {
-            const div = document.createElement('div');
-            div.className = 'flex justify-between items-center bg-white border p-2 rounded shadow-sm line-item-row';
-            div.innerHTML = `
-                <input type="text" class="li-name bg-transparent outline-none w-1/2 text-gray-700" value="${name}">
-                <div class="flex items-center space-x-2 text-xs">
-                    <input type="number" class="li-qty border rounded w-10 text-center p-1" value="${qty}" oninput="calculateFinancials()">
-                    <span class="text-gray-400">@</span>
-                    <input type="number" class="li-price border rounded w-14 text-right p-1" value="${price}" oninput="calculateFinancials()">
-                    <button onclick="this.closest('.line-item-row').remove(); calculateFinancials()" class="text-red-400 hover:text-red-600 pl-1"><i class="fa fa-times"></i></button>
-                </div>
-            `;
-            els.summaryPartsList.appendChild(div);
-        }
-
-        function calculateFinancials() {
-            // Parts
-            let pTotal = 0;
-            document.querySelectorAll('.line-item-row').forEach(row => {
-                const q = parseFloat(row.querySelector('.li-qty').value) || 0;
-                const p = parseFloat(row.querySelector('.li-price').value) || 0;
-                pTotal += (q * p);
-            });
-
-            // Labor
-            const hrs = parseFloat(els.inputs.laborHours.value) || 0;
-            const rate = parseFloat(els.inputs.laborRate.value) || 0;
-            const lTotal = hrs * rate;
-
-            // Misc
-            const trip = parseFloat(els.inputs.trip.value) || 0;
-            const cons = parseFloat(els.inputs.consumables.value) || 0;
-            const mTotal = trip + cons;
-
-            const sub = pTotal + lTotal + mTotal;
-            const margin = parseFloat(els.inputs.margin.value) || 0;
-            const grand = margin > 0 && margin < 100 ? sub / (1 - (margin/100)) : sub;
-
-            els.totals.parts.textContent = formatCurrency(pTotal);
-            els.totals.labor.textContent = formatCurrency(lTotal);
-            els.totals.misc.textContent = formatCurrency(mTotal);
-            els.totals.sub.textContent = formatCurrency(sub);
-            els.totals.grand.textContent = formatCurrency(grand);
-        }
-
-        function formatCurrency(num) {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
-        }
-
-        // --- PDF GENERATION ---
-        async function generatePDF() {
-            const doc = new jsPDF();
-            const margin = 15;
-            let y = 20;
-
-            // Branding
-            doc.setFontSize(18).setTextColor(40).text("SERVICE INVOICE / QUOTE", margin, y);
-            y += 10;
-            doc.setFontSize(10).setTextColor(100).text(`Date: ${new Date().toLocaleDateString()}`, margin, y);
-            y += 10;
-
-            // Customer
-            doc.setFillColor(245, 247, 250);
-            doc.rect(margin, y, 180, 25, 'F');
-            doc.setTextColor(0).setFontSize(11).text("Customer:", margin + 5, y + 7);
-            doc.setFontSize(10).text(document.getElementById('customerName').value, margin + 5, y + 14);
-            doc.text(document.getElementById('customerAddress').value, margin + 5, y + 19);
-            y += 35;
-
-            // Units
-            units.forEach(u => {
-                doc.setFontSize(12).setFont(undefined, 'bold').text(`Unit: ${u.name} (${u.type})`, margin, y);
-                y += 6;
-                doc.setFontSize(9).setFont(undefined, 'normal').setTextColor(80);
-                if(u.brand || u.model) doc.text(`Brand: ${u.brand} | Model: ${u.model} | Serial: ${u.serial}`, margin, y);
-                y += 6;
-                
-                if(u.selectedJobs.size > 0) {
-                    doc.text("Services Performed:", margin, y);
-                    y += 5;
-                    u.selectedJobs.forEach(k => {
-                        const job = jobData[k];
-                        if(job) {
-                            doc.text(`• ${job.title}`, margin + 5, y);
-                            y += 5;
-                        }
-                    });
-                }
-                
-                if(u.notes) {
-                    y += 2;
-                    const notes = doc.splitTextToSize(`Notes: ${u.notes}`, 170);
-                    doc.text(notes, margin, y);
-                    y += (notes.length * 5) + 5;
-                }
-                y += 5;
-            });
-
-            // Summary Box
-            y += 5;
-            const option = document.getElementById('pdfOption').value;
-            
-            if(option !== 'detailed') {
-                doc.setDrawColor(200);
-                doc.line(margin, y, 195, y);
-                y += 10;
-                
-                if(option === 't&m') {
-                    doc.text(`Labor Total: ${els.totals.labor.textContent}`, 190, y, {align:'right'}); y+=6;
-                    doc.text(`Materials Total: ${els.totals.parts.textContent}`, 190, y, {align:'right'}); y+=6;
-                    doc.text(`Misc/Trip: ${els.totals.misc.textContent}`, 190, y, {align:'right'}); y+=8;
-                    doc.setFont(undefined, 'bold').text(`Subtotal: ${els.totals.sub.textContent}`, 190, y, {align:'right'}); y+=10;
-                }
-                
-                doc.setFontSize(14).setTextColor(0, 100, 0).text(`Total Due: ${els.totals.grand.textContent}`, 190, y, {align:'right'});
+            function addUnit() {
+                const unitId = Date.now();
+                const newUnit = createUnit(unitId, `Unit ${units.length + 1}`);
+                units.push(newUnit);
+                setActiveUnit(unitId);
+                saveState();
             }
 
-            // Footer
-            doc.setFontSize(8).setTextColor(150).text("Thank you for your business.", 105, 280, {align:'center'});
-
-            doc.save(`Invoice_${Date.now()}.pdf`);
-        }
-
-
-        // --- EVENT LISTENERS ---
-        document.addEventListener('DOMContentLoaded', init);
-        
-        document.querySelectorAll('.tab-btn').forEach(b => b.onclick = (e) => renderServiceList(e.target.dataset.tab));
-        
-        els.toggleEditModeBtn.onclick = toggleEditMode;
-        document.getElementById('addNewServiceBtn').onclick = () => openServiceEditor(null, currentTab);
-        
-        document.getElementById('closeEditorModalBtn').onclick = () => els.serviceEditorModal.classList.add('hidden');
-        document.getElementById('cancelEditBtn').onclick = () => els.serviceEditorModal.classList.add('hidden');
-        document.getElementById('saveServiceBtn').onclick = saveServiceFromEditor;
-
-        document.getElementById('addUnitBtn').onclick = addUnit;
-        document.getElementById('removeUnitBtn').onclick = removeActiveUnit;
-        
-        document.getElementById('addLineItemBtn').onclick = () => { addLineItemDOM(); calculateFinancials(); };
-        document.getElementById('clearAllBtn').onclick = resetToDefaults;
-        document.getElementById('resetAppBtn').onclick = resetToDefaults;
-        
-        document.getElementById('generatePdfBtn').onclick = generatePDF;
-        
-        // Input listeners
-        // Fixed: Use correct DOM IDs in array
-        ['laborRate', 'marginPercent', 'tripCost', 'consumablesCost', 'summaryLaborHours'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) { // Added null check for safety
-                if(id === 'summaryLaborHours') {
-                    el.addEventListener('input', () => { laborManuallySet = true; calculateFinancials(); saveData(); });
-                } else {
-                    el.addEventListener('input', () => { calculateFinancials(); saveData(); });
-                }
-            } else {
-                console.warn(`Element with id '${id}' not found for event binding.`);
+            function removeActiveUnit() {
+                if (units.length <= 1) { alert("Cannot remove the last unit."); return; }
+                const indexToRemove = units.findIndex(u => u.id === activeUnitId);
+                units.splice(indexToRemove, 1);
+                const newActiveId = units.length > 0 ? units[Math.max(0, indexToRemove - 1)].id : null;
+                setActiveUnit(newActiveId);
+                if (units.length === 0) addUnit(); else saveState();
             }
-        });
 
-        // Photo Handlers
-        window.openPhotoModal = (src) => {
-            document.getElementById('modalImage').src = src;
-            els.photoModal.classList.remove('hidden');
-        };
-        document.getElementById('closePhotoModalBtn').onclick = () => els.photoModal.classList.add('hidden');
-        
-        document.getElementById('photoInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                getActiveUnit().photos.push(ev.target.result);
-                saveData();
+            function setActiveUnit(unitId) {
+                activeUnitId = unitId;
+                laborManuallySet = false; // Reset manual labor flag when switching units
+                renderUnitTabs();
                 renderUnitDetails();
-            };
-            reader.readAsDataURL(file);
-        };
-        window.removePhoto = (i) => {
-            getActiveUnit().photos.splice(i, 1);
-            saveData();
-            renderUnitDetails();
-        };
+                updateCheckboxesForActiveUnit();
+                updateGlobalSummary();
+            }
 
+            function getActiveUnit() {
+                return units.find(u => u.id === activeUnitId);
+            }
+
+            function renderServiceList(category) {
+                serviceListContainer.innerHTML = '';
+                const categories = serviceCategories[category];
+                if (!categories) return;
+
+                if (category === 'support') {
+                     serviceListContainer.innerHTML = `<h3 class="font-semibold text-lg mb-2 text-gray-700">Manufacturer Support</h3><p class="text-sm text-gray-600">Please refer to your equipment for specific support numbers.</p>`;
+                    return;
+                }
+
+                for (const catName in categories) {
+                    const header = document.createElement('h3');
+                    header.className = 'font-semibold text-lg mb-2 text-gray-700 mt-4 first:mt-0';
+                    header.textContent = catName;
+                    serviceListContainer.appendChild(header);
+                    
+                    const ul = document.createElement('ul');
+                    ul.className = 'space-y-1';
+                    categories[catName].forEach(jobKey => {
+                        const job = jobData[jobKey];
+                        if (job) {
+                            const li = document.createElement('li');
+                            const id = `cb-${jobKey}-${category}`;
+                            li.innerHTML = `<input type="checkbox" id="${id}" data-job="${jobKey}" class="hidden service-checkbox"><label for="${id}" class="service-item block p-2 rounded-md hover:bg-blue-50 cursor-pointer">${job.title}</label>`;
+                            ul.appendChild(li);
+                        }
+                    });
+                    serviceListContainer.appendChild(ul);
+                }
+                updateCheckboxesForActiveUnit();
+            }
+
+            function renderUnitTabs() {
+                unitTabs.innerHTML = '';
+                units.forEach(unit => {
+                    const tab = document.createElement('button');
+                    tab.className = `px-4 py-2 text-sm font-medium rounded-t-lg border-t border-l border-r ${unit.id === activeUnitId ? 'unit-tab-active' : 'bg-gray-100 hover:bg-gray-200'}`;
+                    tab.textContent = unit.name;
+                    tab.onclick = () => setActiveUnit(unit.id);
+                    unitTabs.appendChild(tab);
+                });
+                removeUnitBtn.disabled = units.length <= 1;
+            }
+
+            function renderUnitDetails() {
+                unitDetailsContainer.innerHTML = '';
+                const unit = getActiveUnit();
+                if (!unit) {
+                    unitDetailsContainer.innerHTML = `<p class="text-gray-500 italic">No unit selected. Please add a unit to begin.</p>`;
+                    return;
+                }
+
+                const detailsDiv = document.createElement('div');
+                const typeOptions = unitTypes.map(t => `<option value="${t}" ${unit.type === t ? 'selected' : ''}>${t}</option>`).join('');
+                const brandOptions = brandNames.map(b => `<option value="${b}" ${unit.brand === b ? 'selected' : ''}>${b}</option>`).join('');
+
+                detailsDiv.innerHTML = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Unit Name</label>
+                            <input type="text" value="${unit.name}" data-field="name" class="unit-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                         <div>
+                            <label class="block text-sm font-medium text-gray-700">Unit Type</label>
+                            <select data-field="type" class="unit-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">${typeOptions}</select>
+                            <input type="text" data-field="type" class="unit-input-other mt-2 w-full px-3 py-2 border rounded-md ${unitTypes.includes(unit.type) || !unit.type ? 'hidden' : ''}" value="${unitTypes.includes(unit.type) ? '' : unit.type}" placeholder="Specify other type">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Brand</label>
+                            <select data-field="brand" class="unit-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">${brandOptions}</select>
+                            <input type="text" data-field="brand" class="unit-input-other mt-2 w-full px-3 py-2 border rounded-md ${brandNames.includes(unit.brand) || !unit.brand ? 'hidden' : ''}" value="${brandNames.includes(unit.brand) ? '' : unit.brand}" placeholder="Specify other brand">
+                        </div>
+                        <div></div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Model #</label>
+                            <input type="text" value="${unit.model}" data-field="model" class="unit-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Serial #</label>
+                            <input type="text" value="${unit.serial}" data-field="serial" class="unit-input mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-lg mb-2">Service Notes for ${unit.name}</h3>
+                        <textarea data-field="notes" class="unit-input w-full p-2 border rounded-md h-24" placeholder="Describe diagnosis, work performed...">${unit.notes}</textarea>
+                    </div>
+                    <div class="mt-6">
+                        <h3 class="font-semibold text-lg mb-2">Photos for ${unit.name}</h3>
+                        <div class="photo-gallery grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 mb-3"></div>
+                        <button class="add-photo-btn w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition duration-200">
+                            <i class="fa fa-camera mr-2"></i>Add Photo to ${unit.name}
+                        </button>
+                    </div>
+                `;
+                unitDetailsContainer.appendChild(detailsDiv);
+                renderUnitPhotos(unit);
+            }
+            
+            function renderUnitPhotos(unit) {
+                const gallery = unitDetailsContainer.querySelector('.photo-gallery');
+                if (!gallery) return;
+                gallery.innerHTML = '';
+                unit.photos.forEach((photoSrc, index) => {
+                    const photoWrapper = document.createElement('div');
+                    photoWrapper.className = 'relative w-20 h-20';
+                    photoWrapper.innerHTML = `
+                        <img src="${photoSrc}" class="w-full h-full object-cover rounded-md cursor-pointer photo-thumbnail" data-index="${index}">
+                        <button class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs delete-photo-btn" data-index="${index}">&times;</button>
+                    `;
+                    gallery.appendChild(photoWrapper);
+                });
+            }
+
+            function updateCheckboxesForActiveUnit() {
+                const unit = getActiveUnit();
+                const allCheckboxes = serviceListContainer.querySelectorAll('.service-checkbox');
+                allCheckboxes.forEach(cb => {
+                    cb.checked = unit ? unit.selectedJobs.has(cb.dataset.job) : false;
+                });
+            }
+
+            function updateGlobalSummary() {
+                let totalLaborHours = 0;
+                const aggregatedParts = new Map();
+
+                units.forEach(unit => {
+                    unit.selectedJobs.forEach(jobKey => {
+                        const job = jobData[jobKey];
+                        if (!job) return;
+                        totalLaborHours += job.laborHours;
+                        job.parts.forEach(part => {
+                            const existingPart = aggregatedParts.get(part.name);
+                            if (existingPart) {
+                                existingPart.qty += part.qty;
+                            } else {
+                                aggregatedParts.set(part.name, { ...part });
+                            }
+                        });
+                    });
+                });
+
+                if (!laborManuallySet) {
+                    summaryLaborHours.value = totalLaborHours.toFixed(1);
+                }
+                
+                summaryPartsList.innerHTML = '';
+                
+                if (aggregatedParts.size === 0) {
+                    summaryPartsList.innerHTML = `<p class="text-gray-500 italic">No services selected for any unit.</p>`;
+                } else {
+                    aggregatedParts.forEach((data, name) => {
+                        addLineItemToSummary(name, data.qty, data.price);
+                    });
+                }
+                calculateTotals();
+            }
+            
+            function addLineItemToSummary(name = '', qty = 1, price = 0) {
+                const placeholder = summaryPartsList.querySelector('p');
+                if (placeholder) placeholder.remove();
+
+                const partDiv = document.createElement('div');
+                partDiv.className = 'flex justify-between items-center bg-gray-50 p-2 rounded-md';
+                partDiv.innerHTML = `
+                    <input type="text" class="summary-part-name bg-transparent p-1 rounded w-1/2" value="${name}" placeholder="Enter item description">
+                    <div class="flex items-center space-x-2">
+                        <label class="text-xs">Qty:</label>
+                        <input type="number" class="summary-part-qty p-1 border rounded-md w-16 text-center" value="${qty}">
+                        <label class="text-xs">Cost:</label>
+                        <input type="number" class="summary-part-price p-1 border rounded-md w-20 text-right" value="${price.toFixed(2)}">
+                        <button class="text-red-500 hover:text-red-700 remove-line-item-btn"><i class="fa fa-trash"></i></button>
+                    </div>
+                `;
+                summaryPartsList.appendChild(partDiv);
+            }
+
+            function calculateTotals() {
+                let totalPartsCost = 0;
+                summaryPartsList.querySelectorAll('.flex.justify-between').forEach(el => {
+                    const qty = parseFloat(el.querySelector('.summary-part-qty').value) || 0;
+                    const price = parseFloat(el.querySelector('.summary-part-price').value) || 0;
+                    totalPartsCost += qty * price;
+                });
+
+                const shipping = parseFloat(document.getElementById('shippingCost').value) || 0;
+                const rental = parseFloat(document.getElementById('rentalCost').value) || 0;
+                const trip = parseFloat(document.getElementById('tripCost').value) || 0;
+                const consumables = parseFloat(document.getElementById('consumablesCost').value) || 0;
+                const totalMiscCost = shipping + rental + trip + consumables;
+
+                const laborRate = parseFloat(laborRateInput.value) || 0;
+                const totalLaborHours = parseFloat(summaryLaborHours.value) || 0;
+                const totalLaborCost = totalLaborHours * laborRate;
+                
+                const subTotal = totalPartsCost + totalLaborCost + totalMiscCost;
+                const margin = parseFloat(marginPercentInput.value) || 0;
+                const customerPrice = margin > 0 ? subTotal / (1 - (margin / 100)) : subTotal;
+
+                totalPartsCostEl.textContent = `$${totalPartsCost.toFixed(2)}`;
+                totalLaborCostEl.textContent = `$${totalLaborCost.toFixed(2)}`;
+                totalMiscCostEl.textContent = `$${totalMiscCost.toFixed(2)}`;
+                subTotalEl.textContent = `$${subTotal.toFixed(2)}`;
+                grandTotalEl.textContent = `$${customerPrice.toFixed(2)}`;
+            }
+
+            function saveState() {
+                const jobInfo = {
+                    customerName: document.getElementById('customerName').value,
+                    customerContact: document.getElementById('customerContact').value,
+                    customerAddress: document.getElementById('customerAddress').value,
+                    laborRate: laborRateInput.value,
+                    marginPercent: marginPercentInput.value,
+                    pdfOption: pdfOptionSelect.value,
+                    shippingCost: document.getElementById('shippingCost').value,
+                    rentalCost: document.getElementById('rentalCost').value,
+                    tripCost: document.getElementById('tripCost').value,
+                    consumablesCost: document.getElementById('consumablesCost').value,
+                    manualLabor: summaryLaborHours.value
+                };
+                localStorage.setItem('hvacJobInfo', JSON.stringify(jobInfo));
+                localStorage.setItem('hvacUnits', JSON.stringify(units.map(u => ({...u, selectedJobs: Array.from(u.selectedJobs)}))));
+                localStorage.setItem('hvacActiveUnitId', activeUnitId);
+            }
+
+            function loadState() {
+                const savedJobInfo = localStorage.getItem('hvacJobInfo');
+                if (savedJobInfo) {
+                    const { customerName, customerContact, customerAddress, laborRate, marginPercent, pdfOption, shippingCost, rentalCost, tripCost, consumablesCost, manualLabor } = JSON.parse(savedJobInfo);
+                    document.getElementById('customerName').value = customerName || '';
+                    document.getElementById('customerContact').value = customerContact || '';
+                    document.getElementById('customerAddress').value = customerAddress || '';
+                    laborRateInput.value = laborRate || '125';
+                    marginPercentInput.value = marginPercent || '50';
+                    pdfOptionSelect.value = pdfOption || 't&m';
+                    document.getElementById('shippingCost').value = shippingCost || '0';
+                    document.getElementById('rentalCost').value = rentalCost || '0';
+                    document.getElementById('tripCost').value = tripCost || '45';
+                    document.getElementById('consumablesCost').value = consumablesCost || '45';
+                    if (manualLabor) {
+                        summaryLaborHours.value = manualLabor;
+                        laborManuallySet = true;
+                    }
+                }
+
+                const savedUnits = localStorage.getItem('hvacUnits');
+                if (savedUnits) {
+                    try {
+                        const parsedUnits = JSON.parse(savedUnits);
+                        if (Array.isArray(parsedUnits)) {
+                            units = parsedUnits.map(u => ({...createUnit(u.id, u.name), ...u, selectedJobs: new Set(u.selectedJobs)}));
+                        }
+                    } catch (e) { console.error("Could not parse saved units:", e); units = []; }
+                }
+                
+                if (units.length === 0) addUnit();
+                else {
+                    const savedActiveId = localStorage.getItem('hvacActiveUnitId');
+                    activeUnitId = savedActiveId ? parseInt(savedActiveId) : units[0].id;
+                    if (!units.find(u => u.id === activeUnitId)) activeUnitId = units[0].id;
+                    setActiveUnit(activeUnitId);
+                }
+                updateGlobalSummary();
+            }
+            
+            function handlePhotoUpload(event) {
+                const unit = getActiveUnit();
+                if (!unit) return;
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    unit.photos.push(e.target.result);
+                    renderUnitPhotos(unit);
+                    saveState();
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            function clearEntireJob() {
+                if (confirm("Are you sure you want to clear the entire job, including all units and photos?")) {
+                    units = [];
+                    activeUnitId = null;
+                    localStorage.removeItem('hvacUnits');
+                    localStorage.removeItem('hvacActiveUnitId');
+                    localStorage.removeItem('hvacJobInfo');
+                    document.getElementById('customerName').value = '';
+                    document.getElementById('customerContact').value = '';
+                    document.getElementById('customerAddress').value = '';
+                    laborRateInput.value = '125';
+                    marginPercentInput.value = '50';
+                    pdfOptionSelect.value = 't&m';
+                    document.getElementById('shippingCost').value = '0';
+                    document.getElementById('rentalCost').value = '0';
+                    document.getElementById('tripCost').value = '45';
+                    document.getElementById('consumablesCost').value = '45';
+                    laborManuallySet = false;
+                    addUnit();
+                    updateGlobalSummary();
+                }
+            }
+            
+            async function generatePDF() {
+                const doc = new jsPDF();
+                let y = 15;
+                const pageHeight = doc.internal.pageSize.height;
+                const margin = 10;
+                const companyInfo = { name: "Mechanical Temp", address: "23093 Telegraph Rd, Southfield, MI 48033", phone: "313-282-4758", email: "office@mechanicaltemp.com" };
+
+                function checkY(requiredHeight) {
+                    if (y + requiredHeight > pageHeight - margin) {
+                        doc.addPage();
+                        y = margin;
+                    }
+                }
+
+                doc.setFontSize(20).setFont('helvetica', 'bold').text(companyInfo.name, margin, y);
+                y += 7;
+                doc.setFontSize(10).setFont('helvetica', 'normal').text(companyInfo.address, margin, y);
+                y += 5;
+                doc.text(`${companyInfo.phone} | ${companyInfo.email}`, margin, y);
+                y += 10;
+                doc.setLineWidth(0.5).line(margin, y, 200, y);
+                y += 10;
+
+                doc.setFontSize(12).setFont('helvetica', 'bold').text('Customer Information', margin, y);
+                y += 6;
+                doc.setFontSize(10).setFont('helvetica', 'normal');
+                doc.text(`Name: ${document.getElementById('customerName').value || 'N/A'}`, margin, y);
+                y += 5;
+                doc.text(`Address: ${document.getElementById('customerAddress').value || 'N/A'}`, margin, y);
+                y += 5;
+                doc.text(`Contact: ${document.getElementById('customerContact').value || 'N/A'}`, margin, y);
+                y += 10;
+
+                units.forEach((unit, index) => {
+                    checkY(20);
+                    doc.setFontSize(14).setFont('helvetica', 'bold').text(`Unit ${index + 1}: ${unit.name} (${unit.type || 'N/A'})`, margin, y);
+                    y += 7;
+                    doc.setFontSize(10).setFont('helvetica', 'normal');
+                    doc.text(`Brand: ${unit.brand || 'N/A'}`, margin, y); y += 5;
+                    doc.text(`Model: ${unit.model || 'N/A'}`, margin, y); y += 5;
+                    doc.text(`Serial: ${unit.serial || 'N/A'}`, margin, y); y += 7;
+
+                    if (unit.selectedJobs.size > 0) {
+                        checkY(10);
+                        doc.setFontSize(11).setFont('helvetica', 'bold').text('Services Performed:', margin, y); y += 5;
+                        doc.setFontSize(10).setFont('helvetica', 'normal');
+                        unit.selectedJobs.forEach(jobKey => {
+                            checkY(5);
+                            doc.text(`- ${jobData[jobKey].title}`, margin + 5, y); y += 5;
+                        });
+                    }
+                    
+                    if (unit.notes) {
+                        y += 3;
+                        checkY(10);
+                        doc.setFontSize(11).setFont('helvetica', 'bold').text('Notes:', margin, y); y += 5;
+                        doc.setFontSize(10);
+                        const notes = doc.splitTextToSize(unit.notes, 180);
+                        checkY(notes.length * 5);
+                        doc.text(notes, margin + 5, y);
+                        y += (notes.length * 5);
+                    }
+                    
+                    if (unit.photos.length > 0) {
+                        y += 3;
+                        checkY(10);
+                        doc.setFontSize(11).setFont('helvetica', 'bold').text('Photos:', margin, y); y += 5;
+                        for (const photoSrc of unit.photos) {
+                            try {
+                                const imgProps = doc.getImageProperties(photoSrc);
+                                const imgWidth = 60;
+                                const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+                                checkY(imgHeight + 5);
+                                doc.addImage(photoSrc, undefined, margin, y, imgWidth, imgHeight);
+                                y += imgHeight + 5;
+                            } catch (e) { console.error(e); }
+                        }
+                    }
+                    y += 10;
+                });
+                
+                const pdfOption = pdfOptionSelect.value;
+                if (pdfOption !== 'hide') {
+                    checkY(40);
+                    doc.setFontSize(16).setFont('helvetica', 'bold').text('--- Billing Summary ---', margin, y); y += 10;
+                    
+                    if (pdfOption === 't&m') {
+                        doc.setFontSize(12).setFont('helvetica', 'normal');
+                        doc.text(`Total Parts Cost:`, margin, y);
+                        doc.text(totalPartsCostEl.textContent, 190, y, { align: 'right' }); y += 7;
+                        doc.text(`Total Labor Cost (${summaryLaborHours.value} hrs @ $${laborRateInput.value}/hr):`, margin, y);
+                        doc.text(totalLaborCostEl.textContent, 190, y, { align: 'right' }); y += 7;
+                        doc.text(`Additional Costs:`, margin, y);
+                        doc.text(totalMiscCostEl.textContent, 190, y, { align: 'right' }); y += 7;
+                    }
+
+                    doc.setLineWidth(0.5).line(margin, y, 200, y); y += 7;
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(pdfOption === 'flatRate' ? 'Flat Rate Price:' : 'Grand Total:', margin, y);
+                    doc.text(grandTotalEl.textContent, 190, y, { align: 'right' });
+                    y += 20;
+                }
+
+                checkY(20);
+                doc.setLineWidth(0.2).line(margin, y, 90, y).line(120, y, 200, y);
+                y += 3;
+                doc.setFontSize(8).text('Customer Signature', margin, y).text('Technician Signature', 120, y);
+
+                doc.save('HVAC_Service_Report.pdf');
+            }
+
+
+            // --- EVENT LISTENERS ---
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const tabId = button.dataset.tab;
+                    tabButtons.forEach(btn => btn.classList.remove('tab-active'));
+                    button.classList.add('tab-active');
+                    renderServiceList(tabId);
+                    jobDetailsPanel.classList.toggle('hidden', tabId === 'support');
+                });
+            });
+
+            serviceListContainer.addEventListener('change', e => {
+                if (e.target.classList.contains('service-checkbox')) {
+                    const unit = getActiveUnit();
+                    if (!unit) return;
+                    const jobKey = e.target.dataset.job;
+                    if (e.target.checked) {
+                        unit.selectedJobs.add(jobKey);
+                    } else {
+                        unit.selectedJobs.delete(jobKey);
+                    }
+                    laborManuallySet = false; // Reset flag when services change
+                    updateGlobalSummary();
+                    saveState();
+                }
+            });
+            
+            unitDetailsContainer.addEventListener('input', e => {
+                const unit = getActiveUnit();
+                if (!unit) return;
+                const field = e.target.dataset.field;
+                if (field) {
+                    const selectElement = e.target.closest('select');
+                    if (selectElement) {
+                        const otherInput = selectElement.nextElementSibling;
+                        if (e.target.value === 'Other') {
+                            otherInput.classList.remove('hidden');
+                             unit[field] = ''; 
+                        } else {
+                            otherInput.classList.add('hidden');
+                            unit[field] = e.target.value;
+                        }
+                    } else if (e.target.classList.contains('unit-input-other')) {
+                         unit[field] = e.target.value;
+                    } else {
+                        unit[field] = e.target.value;
+                    }
+                    if(field === 'name') renderUnitTabs();
+                    saveState();
+                }
+            });
+            
+            unitDetailsContainer.addEventListener('click', e => {
+                const unit = getActiveUnit();
+                if (!unit) return;
+                if (e.target.closest('.add-photo-btn')) {
+                    photoInput.click();
+                } else if (e.target.closest('.delete-photo-btn')) {
+                    const index = parseInt(e.target.closest('.delete-photo-btn').dataset.index);
+                    unit.photos.splice(index, 1);
+                    renderUnitPhotos(unit);
+                    saveState();
+                } else if (e.target.closest('.photo-thumbnail')) {
+                    modalImage.src = e.target.src;
+                    photoModal.classList.remove('hidden');
+                }
+            });
+            
+            summaryPartsList.addEventListener('input', () => calculateTotals());
+            summaryPartsList.addEventListener('click', e => {
+                if(e.target.closest('.remove-line-item-btn')) {
+                    e.target.closest('.flex.justify-between').remove();
+                    calculateTotals();
+                }
+            });
+
+            addLineItemBtn.addEventListener('click', () => {
+                addLineItemToSummary();
+                calculateTotals();
+            });
+
+            addUnitBtn.addEventListener('click', addUnit);
+            removeUnitBtn.addEventListener('click', removeActiveUnit);
+            clearAllBtn.addEventListener('click', clearEntireJob);
+            photoInput.addEventListener('change', handlePhotoUpload);
+            closeModalBtn.addEventListener('click', () => photoModal.classList.add('hidden'));
+            generatePdfBtn.addEventListener('click', generatePDF);
+            document.querySelectorAll('.job-info-input').forEach(input => input.addEventListener('input', () => { updateGlobalSummary(); saveState(); }));
+            
+            summaryLaborHours.addEventListener('input', () => {
+                laborManuallySet = true;
+                calculateTotals();
+            });
+
+            // --- INITIAL LOAD ---
+            renderServiceList('residential');
+            loadState();
+        });
     </script>
+
 </body>
 </html>
