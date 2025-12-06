@@ -147,8 +147,7 @@
                 </div>
             </div>
             <div id="unitTabs" class="flex items-center space-x-1 border-b border-gray-200 overflow-x-auto pb-1 mb-4"></div>
-            <div id="unitDetailsContainer">
-                </div>
+            <div id="unitDetailsContainer"></div>
         </section>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -165,14 +164,13 @@
                     <button data-tab="residential" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg tab-active">Residential</button>
                     <button data-tab="commercial" class="tab-btn flex-shrink-0 py-2 px-3 text-center text-gray-600 hover:bg-gray-50 rounded-t-lg">Commercial</button>
                 </div>
-                <div id="serviceListContainer" class="flex-grow pr-2">
-                    </div>
+                <div id="serviceListContainer" class="flex-grow pr-2"></div>
             </div>
 
             <div class="lg:col-span-2 space-y-6">
                 
                 <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold mb-2 text-gray-800">4. Custom Parts & Materials</h2>
+                    <h2 class="text-xl font-bold mb-2 text-gray-800">4. Parts & Services Breakdown</h2>
                     <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4">
                         <div class="flex flex-col sm:flex-row gap-2 mb-2">
                             <select id="inventory-selector" class="input-field flex-grow">
@@ -278,7 +276,6 @@
             "Carrier", "Trane", "Lennox", "Goodman", "Rheem", "York", "American Standard", 
             "Bryant", "Daikin", "Mitsubishi", "Fujitsu", "LG", "Samsung", "Aaon", "Liebert", "Other"
         ];
-        
         const DEFAULT_JOBS = {
             acMaintenance: { title: 'A/C Maintenance', cost: 15, labor: 1.5, category: 'residential' },
             furnaceMaintenance: { title: 'Furnace Maintenance', cost: 15, labor: 1.5, category: 'residential' },
@@ -338,11 +335,9 @@
             document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
             document.getElementById('csvInput').addEventListener('change', handleCsvUpload);
             document.getElementById('customerName').addEventListener('input', autofillCustomer);
-            
             ['laborHours', 'laborRate', 'tripCharge', 'marginPercent'].forEach(id => {
                 document.getElementById(id).addEventListener('input', calculateTotals);
             });
-
             document.getElementById('google-sign-in').addEventListener('click', () => signInWithPopup(auth, new GoogleAuthProvider()));
             document.getElementById('google-sign-out').addEventListener('click', () => signOut(auth));
             document.getElementById('saveCloudBtn').addEventListener('click', saveToCloud);
@@ -468,7 +463,7 @@
             }
         }
 
-        // --- UNITS (FULL WIDTH & BRAND LOGIC) ---
+        // --- UNITS ---
         function createUnit(id) { return { id, name: `Unit ${units.length + 1}`, brand: '', model: '', serial: '', notes: '', photos: [], selectedServices: new Set() }; }
         function addUnit() { const id = Date.now(); units.push(createUnit(id)); setActiveUnit(id); }
         function removeActiveUnit() { if(units.length <= 1) return alert("Keep at least one unit."); units = units.filter(u => u.id !== activeUnitId); setActiveUnit(units[0].id); }
@@ -493,7 +488,6 @@
             const isCustomBrand = u.brand && !brandOptions.includes(u.brand);
             const showCustomInput = u.brand === 'Other' || isCustomBrand;
 
-            // Updated Full Width Note Box Layout
             container.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <input type="text" value="${u.name}" class="input-field" onchange="updateUnit('${u.id}', 'name', this.value)" placeholder="Unit Name (e.g. RTU-1)">
@@ -559,21 +553,53 @@
         function addCustomItemFromInput() { const name = document.getElementById('customPartName').value; const cost = parseFloat(document.getElementById('customPartCost').value)||0; const qty = parseFloat(document.getElementById('customPartQty').value)||1; if(name) { addCustomLineItem(name, cost, qty); document.getElementById('customPartName').value = ''; } }
         function addCustomLineItem(description, cost, qty) { customLineItems.push({ id: Date.now(), description, cost, qty, unitId: activeUnitId }); calculateTotals(); }
         window.removeLineItem = (id) => { customLineItems = customLineItems.filter(i => i.id !== id); calculateTotals(); }
+        
+        // --- NEW CALCULATE TOTALS WITH SPLIT SECTIONS ---
         function calculateTotals() {
-            let partsTotal = 0; let laborHrsTotal = 0; const tbody = document.getElementById('combinedLineItemsBody'); tbody.innerHTML = '';
+            let partsTotal = 0; let laborHrsTotal = 0; 
+            const tbody = document.getElementById('combinedLineItemsBody'); 
+            tbody.innerHTML = '';
+            
+            const renderHeader = (name) => {
+                tbody.innerHTML += `<tr class="bg-gray-200"><td colspan="4" class="px-4 py-2 font-bold text-gray-700 uppercase text-xs">${name}</td></tr>`;
+            };
+
             units.forEach(u => {
+                let hasItems = false;
+                const unitItemsHTML = [];
+
+                // Checklists
                 u.selectedServices.forEach(key => {
                     const job = quickJobs[key];
                     if(job) {
-                        partsTotal += job.cost; laborHrsTotal += job.labor;
-                        tbody.innerHTML += `<tr class="bg-blue-50/50 border-b"><td class="px-4 py-2 font-medium text-xs">${u.name}: ${job.title}</td><td class="px-4 py-2 text-right text-xs">$${job.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-xs">1</td><td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td></tr>`;
+                        partsTotal += job.cost; laborHrsTotal += job.labor; hasItems = true;
+                        unitItemsHTML.push(`<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${job.title}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${job.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">1</td><td class="px-4 py-2 text-center text-xs text-gray-400">Fixed</td></tr>`);
                     }
                 });
+
+                // Custom Items (Matched by Unit ID)
+                customLineItems.filter(i => i.unitId === u.id).forEach(item => {
+                    partsTotal += (item.cost * item.quantity); hasItems = true;
+                    unitItemsHTML.push(`<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${item.description}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${item.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">${item.quantity}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button></td></tr>`);
+                });
+
+                if(hasItems) {
+                    renderHeader(`${u.name} ${u.brand ? '('+u.brand+')' : ''}`);
+                    tbody.innerHTML += unitItemsHTML.join('');
+                }
             });
-            customLineItems.forEach(item => {
-                partsTotal += (item.cost * item.quantity); const uName = units.find(u => u.id === item.unitId)?.name || 'General';
-                tbody.innerHTML += `<tr class="border-b"><td class="px-4 py-2 text-sm">${uName}: ${item.description}</td><td class="px-4 py-2 text-right text-sm">$${item.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm">${item.quantity}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700">&times;</button></td></tr>`;
-            });
+            
+            // Handle General/Unassigned Items
+            const activeUnitIds = units.map(u => u.id);
+            const orphanedItems = customLineItems.filter(i => !activeUnitIds.includes(i.unitId));
+            if(orphanedItems.length > 0) {
+                renderHeader("General / Unassigned");
+                orphanedItems.forEach(item => {
+                    partsTotal += (item.cost * item.quantity);
+                    tbody.innerHTML += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 text-sm text-gray-700 pl-8">${item.description}</td><td class="px-4 py-2 text-right text-sm text-gray-600">$${item.cost.toFixed(2)}</td><td class="px-4 py-2 text-right text-sm text-gray-600">${item.quantity}</td><td class="px-4 py-2 text-center"><button onclick="removeLineItem(${item.id})" class="text-red-500 hover:text-red-700"><i class="fa fa-trash"></i></button></td></tr>`;
+                });
+            }
+
             const manualLabor = parseFloat(document.getElementById('laborHours').value);
             const finalLaborHrs = isNaN(manualLabor) ? laborHrsTotal : manualLabor;
             if(isNaN(manualLabor)) document.getElementById('laborHours').placeholder = laborHrsTotal.toFixed(1);
