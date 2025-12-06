@@ -9,13 +9,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script> <style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    
+    <style>
         body { font-family: 'Inter', sans-serif; }
         .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; }
         .unit-tab-active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
         input:checked + label { background-color: #eff6ff; color: #2563eb; font-weight: 500; }
         #serviceListContainer { max-height: 65vh; overflow-y: auto; }
-        .input-field { @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm; }
+        /* Improved Input Field Styling */
+        .input-field { 
+            @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out; 
+        }
         .btn-google { @apply px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition duration-200 shadow-sm flex items-center justify-center space-x-2 text-sm; }
     </style>
 </head>
@@ -72,24 +77,39 @@
                 
                 <div class="mb-6 border-b pb-4">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold">Customer Information</h2>
+                        <h2 class="text-xl font-bold">Customer & Job Info</h2>
                         <div class="flex space-x-2">
                             <input type="file" id="csvInput" accept=".csv" class="hidden">
-                            <button onclick="document.getElementById('csvInput').click()" class="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 flex items-center">
-                                <i class="fa fa-file-csv mr-1"></i> 📂 Import AppSheet CSV
+                            <button onclick="document.getElementById('csvInput').click()" class="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 flex items-center transition">
+                                <i class="fa fa-file-csv mr-1"></i> Import AppSheet CSV
                             </button>
-                            <button id="saveCloudBtn" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 hidden">
+                            <button id="saveCloudBtn" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 hidden transition">
                                 <i class="fa fa-cloud-upload-alt mr-1"></i> Save to Cloud
                             </button>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="relative">
-                            <input type="text" id="customerName" placeholder="Search Customer Name..." list="customerOptions" class="input-field" autocomplete="off">
-                            <datalist id="customerOptions"></datalist> </div>
-                        <input type="text" id="customerContact" placeholder="Contact / Bill To" class="input-field">
-                        <input type="text" id="customerAddress" placeholder="Service Address" class="input-field sm:col-span-2">
+                        <div class="col-span-1">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Work Order #</label>
+                            <input type="text" id="workOrderNo" placeholder="WO-12345" class="input-field border-l-4 border-l-blue-500">
+                        </div>
+                         <div class="col-span-1">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Customer Search</label>
+                            <div class="relative">
+                                <input type="text" id="customerName" placeholder="Start typing name..." list="customerOptions" class="input-field" autocomplete="off">
+                                <datalist id="customerOptions"></datalist>
+                            </div>
+                        </div>
+                        
+                        <div class="col-span-1">
+                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Contact / Bill To</label>
+                            <input type="text" id="customerContact" class="input-field">
+                        </div>
+                         <div class="col-span-1">
+                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Service Address</label>
+                            <input type="text" id="customerAddress" class="input-field">
+                        </div>
                     </div>
                     <p id="csv-status" class="text-xs text-gray-500 mt-2 italic text-right"></p>
                 </div>
@@ -214,6 +234,11 @@
         const { jsPDF } = window.jspdf;
 
         // --- 2. DATA CONSTANTS ---
+        const brandOptions = [
+            "Carrier", "Trane", "Lennox", "Goodman", "Rheem", "York", "American Standard", 
+            "Bryant", "Daikin", "Mitsubishi", "Fujitsu", "LG", "Samsung", "Aaon", "Liebert", "Other"
+        ];
+        
         const quickJobs = {
             acMaintenance: { title: 'A/C Maintenance', cost: 15, labor: 1.5 },
             furnaceMaintenance: { title: 'Furnace Maintenance', cost: 15, labor: 1.5 },
@@ -305,9 +330,12 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    const count = processCsvData(results.data);
-                    showMessage(`Successfully imported ${count} customers!`, "bg-green-100 text-green-700");
-                    document.getElementById('csv-status').textContent = `Loaded ${count} customers from CSV`;
+                    // Pass total row count vs unique customer count
+                    const totalRows = results.data.length;
+                    const uniqueCount = processCsvData(results.data);
+                    
+                    showMessage(`Imported ${uniqueCount} unique customers (from ${totalRows} records).`, "bg-green-100 text-green-700");
+                    document.getElementById('csv-status').textContent = `DB: ${uniqueCount} Customers loaded`;
                 },
                 error: function(err) {
                     alert("Error parsing CSV: " + err.message);
@@ -316,24 +344,25 @@
         }
 
         function processCsvData(rows) {
-            let count = 0;
+            let uniqueCount = 0;
             rows.forEach(row => {
-                // Mapping based on AppSheet.ViewData structure
                 const name = row['Customer'];
                 if (name) {
+                    // Only increment count if new customer
+                    if(!customerDB[name]) uniqueCount++;
+                    
                     customerDB[name] = {
                         address: row['Service Address'] || '',
                         contact: row['Bill To'] || '',
                         type: (row['Location Type'] || '').toLowerCase().includes('commercial') ? 'commercial' : 'residential'
                     };
-                    count++;
                 }
             });
             
             // Save to LocalStorage for persistence across reloads
             localStorage.setItem('hvac_customer_db', JSON.stringify(customerDB));
             populateCustomerList();
-            return count;
+            return Object.keys(customerDB).length; // Return total unique
         }
 
         function loadCachedCustomers() {
@@ -343,7 +372,7 @@
                     customerDB = JSON.parse(cached);
                     const count = Object.keys(customerDB).length;
                     if (count > 0) {
-                        document.getElementById('csv-status').textContent = `Loaded ${count} cached customers`;
+                        document.getElementById('csv-status').textContent = `DB: ${count} Cached Customers`;
                         populateCustomerList();
                     }
                 } catch (e) { console.error("Cache error", e); }
@@ -418,14 +447,33 @@
             const container = document.getElementById('unitDetailsContainer');
             if(!u) return;
 
+            // Brand Options Logic
+            let brandSelectOptions = `<option value="" disabled ${!u.brand ? 'selected' : ''}>-- Select Brand --</option>`;
+            brandOptions.forEach(b => {
+                 brandSelectOptions += `<option value="${b}" ${u.brand === b ? 'selected' : ''}>${b}</option>`;
+            });
+
+            // Logic to show custom brand input if 'Other' or unknown brand was saved previously
+            const isCustomBrand = u.brand && !brandOptions.includes(u.brand);
+            const showCustomInput = u.brand === 'Other' || isCustomBrand;
+
             container.innerHTML = `
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <input type="text" value="${u.name}" class="input-field" onchange="updateUnit('${u.id}', 'name', this.value)" placeholder="Unit Name (e.g. RTU-1)">
-                    <input type="text" value="${u.brand}" class="input-field" onchange="updateUnit('${u.id}', 'brand', this.value)" placeholder="Brand">
+                    
+                    <div>
+                        <select class="input-field" id="brandSelect-${u.id}" onchange="handleBrandChange('${u.id}', this.value)">
+                            ${brandSelectOptions}
+                        </select>
+                        <input type="text" id="brandCustom-${u.id}" value="${isCustomBrand ? u.brand : ''}" class="input-field mt-2 ${showCustomInput ? '' : 'hidden'}" placeholder="Enter Custom Brand" onchange="updateUnit('${u.id}', 'brand', this.value)">
+                    </div>
+
                     <input type="text" value="${u.model}" class="input-field" onchange="updateUnit('${u.id}', 'model', this.value)" placeholder="Model #">
                     <input type="text" value="${u.serial}" class="input-field" onchange="updateUnit('${u.id}', 'serial', this.value)" placeholder="Serial #">
                 </div>
-                <textarea class="input-field h-20 mb-4" placeholder="Diagnosis / Notes" onchange="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
+                
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Diagnosis / Notes</label>
+                <textarea class="input-field mb-4 min-h-[150px] resize-y text-base p-3 border-gray-400" placeholder="Type detailed diagnosis here..." onchange="updateUnit('${u.id}', 'notes', this.value)">${u.notes}</textarea>
                 
                 <div class="flex flex-wrap gap-2 mb-2" id="photoGallery-${u.id}">
                     ${u.photos.map((src, idx) => `<div class="relative w-16 h-16"><img src="${src}" class="w-full h-full object-cover rounded border"><button onclick="removePhoto('${u.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center">&times;</button></div>`).join('')}
@@ -433,6 +481,19 @@
                 <button onclick="document.getElementById('photoInput').click()" class="text-sm text-blue-600 hover:underline"><i class="fa fa-camera"></i> Add Photo</button>
             `;
         }
+        
+        // Exposed to Window for HTML calls
+        window.handleBrandChange = (id, val) => {
+            const customInput = document.getElementById(`brandCustom-${id}`);
+            if(val === 'Other') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+                updateUnit(id, 'brand', ''); // Clear brand so custom input takes over
+            } else {
+                customInput.classList.add('hidden');
+                updateUnit(id, 'brand', val);
+            }
+        };
 
         window.updateUnit = (id, field, val) => {
             const u = units.find(unit => unit.id === id);
@@ -599,7 +660,8 @@
                 customer: {
                     name,
                     contact: document.getElementById('customerContact').value,
-                    address: document.getElementById('customerAddress').value
+                    address: document.getElementById('customerAddress').value,
+                    workOrder: document.getElementById('workOrderNo').value
                 },
                 units: units.map(u => ({...u, selectedServices: Array.from(u.selectedServices)})),
                 customLineItems,
@@ -649,6 +711,11 @@
             doc.setFontSize(22).setTextColor(40).text("HVAC Service Report", margin, y);
             y += 10;
             doc.setFontSize(10).setTextColor(100).text("Mechanical Temp Service", margin, y);
+            
+            // Add WO# to Header
+            const wo = document.getElementById('workOrderNo').value;
+            if(wo) doc.text(`Work Order #: ${wo}`, 150, y);
+            
             y += 15;
 
             doc.setDrawColor(200); doc.line(margin, y, 195, y); y += 10;
